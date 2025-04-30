@@ -1,0 +1,77 @@
+---
+title: "HTMLWidget with WebR"
+format: html
+engine: knitr
+filters:
+    - webr
+execute:
+    echo: false
+    warning: false
+    message: false
+---
+
+```{css}
+#qwebr-output-code-browse-editor-4-result-1 {
+    min-height: 750px !important;
+    width: 110% !important;
+}
+```
+
+```{webr-r}
+#| context: setup
+#| autorun: true
+
+library(palmerpenguins)
+library(tidyverse)
+library(diffviewer)
+
+target_plot <- ggplot(penguins, aes(x=bill_length_mm, y=bill_depth_mm, colour=species)) +
+    geom_point() +
+    labs(x="Bill length", y="Bill depth", colour="Species") +
+    theme_bw() +
+    ggtitle("Length vs depth of penguins")
+
+target_file <- tempfile(fileext = ".png")
+
+input_file <- tempfile(fileext = ".png")
+
+ggsave(target_file, target_plot, width = 5, height = 3)
+
+```
+
+```{webr-r}
+webr::viewer_install()
+
+view <- function(widget) {
+	webr::viewer_install()
+	path <- save_selfcontained(widget)
+    print(getOption("viewer"))
+	getOption("viewer")(path)
+}
+```
+
+```{webr-r}
+#| context: setup
+
+check <- function(input_plot) {
+
+    ggsave(input_file, input_plot, width = 5, height = 3)
+
+    widget <- diffviewer::visual_diff(input_file, target_file)
+
+    view(widget)
+}
+```
+
+Your dataset is `palmerpenguins::penguins`
+
+```{webr-r}
+#| classes: checkoutput
+#| label: test
+my_plot <- ggplot()
+
+check(my_plot)
+```
+
+
+
