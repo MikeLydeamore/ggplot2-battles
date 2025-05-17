@@ -1,0 +1,89 @@
+var editor = ace.edit("editor");
+editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, autoIndent: true});
+editor.session.setMode("ace/mode/r");
+editor.session.setUseWrapMode(true);
+editor.session.setTabSize(2);
+
+import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+const webR = new WebR();
+await webR.init();
+await webR.evalRVoid('options(device=function(...){webr::canvas(width=350, height=200)})');
+const shelter = await new webR.Shelter();
+let canvas = undefined;
+
+await webR.evalRVoid('webr::shim_install()');
+const required_packages = ['tidyverse','palmerpenguins'];
+const packages_div = document.querySelector('.required-packages');
+packages_div.innerHTML = '';
+packages_div.appendChild(arrayToUnorderedList(required_packages));
+await webR.installPackages(required_packages);
+
+const pagename = getCurrentFolderName()
+const response = await fetch(`../challenges/${pagename}.R`);
+let code = await response.text();
+code = code.replace(/\r\n/g, '\n');
+const capture = await shelter.captureR(code, {
+  captureGraphics: {
+    width: 350,
+    height: 200
+  }
+});
+
+// Draw the first (and only) captured image to the page
+if (capture.images.length > 0) {
+  const img = capture.images[0];
+  const canvas = document.getElementById("canvas-base");
+  canvas.style.display = 'block';
+  canvas.getContext("2d").drawImage(img, 0, 0);
+}
+
+shelter.purge();
+
+// Handle webR output messages in an async loop
+(async () => {
+  for (; ;) {
+    const output = await webR.read();
+    switch (output.type) {
+      case 'canvas':
+        let canvas = document.getElementById('canvas');
+        if (output.data.event === 'canvasNewPage') {
+          canvas.style.display = 'block';
+          canvas.getContext('2d').clearRect(0, 0, 700, 400);
+        }
+        if (output.data.event === 'canvasImage') {
+          canvas.getContext('2d').drawImage(output.data.image, 0, 0);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+})();
+
+async function runR() {
+  document.getElementById('canvas').style.display = 'none';
+  let code = editor.getValue();
+  const result = await shelter.captureR(code, {
+    withAutoprint: true,
+    captureStreams: true,
+    captureGraphics: false,
+    captureConditions: false
+  });
+  try {
+    const out = result.output.filter(
+      evt => evt.type == 'stdout' || evt.type == 'stderr'
+    ).map((evt) => evt.data);
+    document.getElementById('out').innerText = out.join('\n');
+  } finally {
+    shelter.purge();
+  }
+}
+
+async function run_and_compare() {
+  await runR();
+  handleRunButtonClick();
+}
+
+document.getElementById('runButton').addEventListener('click', run_and_compare);
+document.getElementById('runButton').innerText = 'Run & Compare';
+document.getElementById('runButton').disabled = false;
