@@ -1,7 +1,7 @@
 class BattleDescription extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
-    <h4 class="text-center">Welcome to GGPlot Battles!</h2>
+    <h4 class="text-center">Welcome to GGplot Battles!</h2>
         <p>Replicate the target plot using R Code. The closer your picture, the higher your score.</p>
 
         <p>For this challenge, your dataset is <code>palmerpenguins::penguins</code>.</p>
