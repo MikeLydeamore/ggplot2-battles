@@ -12,16 +12,29 @@ const shelter = await new webR.Shelter();
 let canvas = undefined;
 
 await webR.evalRVoid('webr::shim_install()');
-const required_packages = ['tidyverse','palmerpenguins'];
-const packages_div = document.querySelector('.required-packages');
-packages_div.innerHTML = '';
-packages_div.appendChild(arrayToUnorderedList(required_packages));
-await webR.installPackages(required_packages);
+
+function extractLibraries(rCode) {
+  return rCode
+    .split('\n')
+    .filter(line => line.trim().startsWith('library('))
+    .map(line => {
+      const match = line.match(/library\(([^)]+)\)/);
+      return match ? match[1].replace(/['"]/g, '').trim() : null;
+    })
+    .filter(Boolean);
+}
 
 const pagename = getCurrentFolderName()
 const response = await fetch(`../challenges/${pagename}.R`);
 let code = await response.text();
 code = code.replace(/\r\n/g, '\n');
+
+const required_packages = extractLibraries(code);
+const packages_div = document.querySelector('.required-packages');
+packages_div.innerHTML = '';
+packages_div.appendChild(arrayToUnorderedList(required_packages));
+await webR.installPackages(required_packages);
+
 const capture = await shelter.captureR(code, {
   captureGraphics: {
     width: 350,
