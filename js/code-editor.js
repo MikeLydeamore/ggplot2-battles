@@ -48,6 +48,10 @@ if (capture.images.length > 0) {
   const canvas = document.getElementById("canvas-base");
   canvas.style.display = 'block';
   canvas.getContext("2d").drawImage(img, 0, 0);
+
+  const canvas_target = document.getElementById("canvas-target");
+  canvas_target.style.display = 'block';
+  canvas_target.getContext("2d").drawImage(img, 0, 0);
 }
 
 shelter.purge();
