@@ -30,6 +30,22 @@ window.addEventListener('mousemove', (e) => {
 // Initial clip
 updateClip(300);
 
+function isCanvasEmpty(canvas) {
+  const ctx = canvas.getContext('2d');
+  const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 0; i < pixelData.length; i += 4) {
+    if (
+      pixelData[i] !== 44 ||      // Red
+      pixelData[i + 1] !== 47 ||  // Green
+      pixelData[i + 2] !== 51 ||  // Blue
+      pixelData[i + 3] !== 255    // Alpha
+    ) {
+      return false; // Found a non-default pixel
+    }
+  }
+  return true;
+}
+
 // Compare button
 function handleRunButtonClick() {
   // Create offscreen canvases

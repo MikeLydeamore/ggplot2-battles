@@ -1,6 +1,6 @@
 var editor = ace.edit("editor");
-editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, autoIndent: true});
 editor.session.setMode("ace/mode/r");
+editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, enableAutoIndent: true});
 editor.session.setUseWrapMode(true);
 editor.session.setTabSize(2);
 
@@ -39,6 +39,16 @@ if (capture.images.length > 0) {
 
 shelter.purge();
 
+function drawDefaultImage(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(44,47,51,1)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'white';
+  ctx.font = '40px sans-serif';
+  ctx.fillText('No plot', 450, 200);
+}
+
+let graphicsReceived = false;
 // Handle webR output messages in an async loop
 (async () => {
   for (; ;) {
@@ -46,22 +56,29 @@ shelter.purge();
     switch (output.type) {
       case 'canvas':
         let canvas = document.getElementById('canvas');
+        graphicsReceived = true;
+        // ctx = canvas.getContext('2d');
+        // ctx.fillStyle = 'rgba(44,47,51,1)';
+        // ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         if (output.data.event === 'canvasNewPage') {
           canvas.style.display = 'block';
-          canvas.getContext('2d').clearRect(0, 0, 700, 400);
+          //canvas.getContext('2d').clearRect(0, 0, 700, 400);
         }
         if (output.data.event === 'canvasImage') {
           canvas.getContext('2d').drawImage(output.data.image, 0, 0);
         }
+        
         break;
       default:
         break;
     }
+    
   }
 })();
 
 async function runR() {
-  document.getElementById('canvas').style.display = 'none';
+  graphicsReceived = false;
   let code = editor.getValue();
   const result = await shelter.captureR(code, {
     withAutoprint: true,
@@ -76,6 +93,11 @@ async function runR() {
     document.getElementById('out').innerText = out.join('\n');
   } finally {
     shelter.purge();
+
+    if (!graphicsReceived) {
+      drawDefaultImage(document.getElementById('canvas'));
+      graphicsReceived = false;
+    }
   }
 }
 
