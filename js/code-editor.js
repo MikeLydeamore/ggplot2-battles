@@ -1,6 +1,7 @@
 var editor = ace.edit("editor");
 editor.session.setMode("ace/mode/r");
-editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, enableAutoIndent: true});
+editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, enableAutoIndent: true });
+editor.setTheme("ace/theme/monokai");
 editor.session.setUseWrapMode(true);
 editor.session.setTabSize(2);
 
@@ -124,5 +125,9 @@ async function run_and_compare() {
 }
 
 document.getElementById('runButton').addEventListener('click', run_and_compare);
-document.getElementById('runButton').innerText = 'Run & Compare';
+document.getElementById('runButton').innerHTML = `
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;">
+    <polygon points="5,3 17,10 5,17"/>
+  </svg> Run & Compare
+`;
 document.getElementById('runButton').disabled = false;
