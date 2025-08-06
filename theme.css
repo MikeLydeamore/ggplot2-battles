@@ -128,7 +128,6 @@ html, body {
   background: #23272b;
   color: #f8f9fa;
   border-bottom: 4px solid #181a1b;
-  /* optional: adjust for spacing */
   border-radius: 0;
 }
 
@@ -161,9 +160,75 @@ html, body {
   line-height: 1.2;
   height: auto;
   align-self: stretch;
-  /* Make button fill the row height */
-  
-  /* Or match your header background if needed */
   display: flex;
   align-items: center;
+}
+
+/* Base styles */
+body {
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+/* Paragraphs and text */
+p {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Buttons and labels */
+button, input, select, label {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+}
+
+/* Optional: improve font smoothing */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #111c; /* dark with transparency */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 6px solid #ccc;
+  border-top-color: #00bcd4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
