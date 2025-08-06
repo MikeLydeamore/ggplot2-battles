@@ -1,6 +1,6 @@
 class BattleDescription extends HTMLElement {
   async connectedCallback() {
-    const resp = await fetch('../js/battle-description.html');
+    const resp = await fetch('../../js/battle-description.html');
     this.innerHTML = await resp.text();
   }
 }

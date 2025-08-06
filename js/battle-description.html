@@ -1,13 +1,19 @@
 <div class="two-column-layout">
     <div class="left inner-box">
-        <h4 class="text-center">Welcome to GGplot Battles!</h2>
+        <h4 class="text-center">Battle target: <span id="target-title"></span></h4>
             <div class="padding">
-            <p>Replicate the target plot using R Code. The closer your picture, the higher your score.</p>
 
-            <p>For this challenge, your dataset is <code>palmerpenguins::penguins</code>.</p>
+                <p id="target-description"></p>
+            </div>
 
-            <p>The following packages have been preinstalled:
-            <div class="required-packages"></div>
+        <h4 class="text-center">Key information</h4>
+            <div class="padding">
+            <p>Dataset name: <code><span id="dataset-name"></span></code></p>
+
+            <p id="target-colours" style="visibility: hidden;"></p>
+
+            <p>Preinstalled packages:
+            <span class="required-packages"></span>
             </p>
 
             <p>Other packages can be preinstalled using <code>install.packages</code> inside the editor below</p>
