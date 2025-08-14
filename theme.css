@@ -3,6 +3,11 @@ html, body {
   margin: 0;
 }
 
+:root {
+  --battle-blur-gradient-left: linear-gradient(to right, rgba(44, 47, 51, 0.9) 60%, transparent 100%);
+  --battle-blur-gradient-right: linear-gradient(to left, rgba(44, 47, 51, 0.9) 60%, transparent 100%);
+}
+
 .page-center {
   height: 100%;
   display: flex;
@@ -231,4 +236,66 @@ html {
   to {
     transform: rotate(360deg);
   }
+}
+
+.battle-thumbnail {
+  width: 350px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 10px;
+}
+
+.list-battles {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: scroll;
+  flex-direction: row;
+  position: relative
+}
+
+.list-battles-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.list-battles {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: scroll;
+  flex-direction: row;
+  /* Remove position: relative here */
+}
+
+.list-battles-wrapper::before,
+.list-battles-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 150px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.list-battles-wrapper::before {
+  left: 0;
+  background: var(--battle-blur-gradient-left);
+  filter: blur(6px);
+}
+
+.list-battles-wrapper::after {
+  right: 0;
+  background: var(--battle-blur-gradient-right);
+  filter: blur(6px);
+}
+
+.list-battles-wrapper.hide-left::before {
+  display: none;
+}
+
+.list-battles-wrapper.hide-right::after {
+  display: none;
 }
