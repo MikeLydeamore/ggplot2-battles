@@ -28,10 +28,10 @@ function extractLibraries(rCode) {
 
 function extractHashpipe(rCode) {
   const arr = {};
-  
+
   // Split input into lines and process each one
   const lines = rCode.split(/\r?\n/);
-  
+
   lines.forEach(line => {
     const match = line.match(/^#\|\s*([\w-]+)\s*:\s*["'](.+?)["']\s*$/);
     if (match) {
@@ -99,11 +99,18 @@ if (capture.images.length > 0) {
   const img = capture.images[0];
   const canvas = document.getElementById("canvas-base");
   canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(44,47,51,1)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   canvas.getContext("2d").drawImage(img, 0, 0);
+
 
   const canvas_target = document.getElementById("canvas-target");
   canvas_target.style.display = 'block';
   canvas_target.getContext("2d").drawImage(img, 0, 0);
+  const ctx_target = canvas_target.getContext('2d');
+  ctx_target.fillStyle = 'rgba(44,47,51,1)';
+  ctx_target.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 shelter.purge();
@@ -112,18 +119,14 @@ function drawDefaultImage(canvas) {
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = 'rgba(44,47,51,1)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'white';
+  //ctx.fillStyle = 'white';
   ctx.font = '40px sans-serif';
-  //ctx.fillText('No plot', 450, 200);
-}
-
-function blankoutCanvas(canvas) {
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'rgba(44,47,51,1)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillText('No plot', 450, 200);
 }
 
 let graphicsReceived = false;
+let plotSequenceStarted = false;
+
 // Handle webR output messages in an async loop
 (async () => {
   for (; ;) {
@@ -131,30 +134,38 @@ let graphicsReceived = false;
     switch (output.type) {
       case 'canvas':
         let canvas = document.getElementById('canvas');
-        //blankoutCanvas(canvas);
         graphicsReceived = true;
-        // ctx = canvas.getContext('2d');
-        // ctx.fillStyle = 'rgba(44,47,51,1)';
-        // ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         if (output.data.event === 'canvasNewPage') {
           canvas.style.display = 'block';
-          //canvas.getContext('2d').clearRect(0, 0, 700, 400);
+          // Clear canvas only at the start of a new plot sequence
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = 'rgba(44,47,51,1)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          plotSequenceStarted = true;
         }
         if (output.data.event === 'canvasImage') {
+          // Only clear if this is the first image in a new sequence
+          if (!plotSequenceStarted) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(44,47,51,1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            plotSequenceStarted = true;
+          }
           canvas.getContext('2d').drawImage(output.data.image, 0, 0);
         }
-        
+
         break;
       default:
         break;
     }
-    
+
   }
 })();
 
 async function runR() {
   graphicsReceived = false;
+  plotSequenceStarted = false; // Reset plot sequence tracking
   let code = editor.getValue();
   const result = await shelter.captureR(code, {
     withAutoprint: true,

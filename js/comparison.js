@@ -134,6 +134,9 @@ function handleRunButtonClick() {
     return;
   }
 
+  // Add raw pixel comparison for debugging
+  //compareRawPixels(offCanvas1, offCanvas2);
+
   // Compare using Resemble.js with diff output
   resemble(offCanvas1.toDataURL())
     .compareTo(offCanvas2.toDataURL())
@@ -151,13 +154,21 @@ function handleRunButtonClick() {
     .onComplete(function (data) {
       if (data.error) {
         result.textContent = "Resemble.js error: " + data.error;
-        diffInfo.textContent = "Error generating diff";
         return;
       }
 
       const mismatch = parseFloat(data.misMatchPercentage);
       const similarity = (100 - mismatch).toFixed(2);
       animateSimilarityScore(similarity);
+
+      // Log detailed comparison data for debugging
+      // console.log('Comparison Results:', {
+      //   misMatchPercentage: data.misMatchPercentage,
+      //   analysisTime: data.analysisTime,
+      //   diffBounds: data.diffBounds,
+      //   dimensionDifference: data.dimensionDifference,
+      //   rawMisMatchPercentage: data.rawMisMatchPercentage
+      // });
 
       // Display the diff image
       if (data.getImageDataUrl) {
@@ -175,6 +186,11 @@ function handleRunButtonClick() {
           if (checkbox) {
             checkbox.disabled = false;
             checkbox.parentElement.style.opacity = '1';
+          }
+
+          // Add pixel analysis for debugging
+          if (mismatch > 0 && mismatch < 5) { // Only for small differences
+            analyzeDifferences(diffCtx);
           }
         };
         diffImg.src = data.getImageDataUrl();
@@ -205,4 +221,87 @@ function animateSimilarityScore(targetValue) {
       clearInterval(interval);
     }
   }, 1000 / frameRate);
+}
+
+// Function to analyze pixel differences for debugging
+function analyzeDifferences(diffCtx) {
+  const imageData = diffCtx.getImageData(0, 0, diffCanvas.width, diffCanvas.height);
+  const data = imageData.data;
+  let diffPixels = 0;
+  let sampleDiffs = [];
+
+  // Sample some different pixels to see what the differences look like
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+
+    // Check if this pixel shows a difference (yellow highlight from resemble.js)
+    if (r > 200 && g > 200 && b < 50) { // Yellow-ish pixels indicate differences
+      diffPixels++;
+
+      // Collect sample coordinates and pixel info
+      if (sampleDiffs.length < 10) {
+        const pixelIndex = i / 4;
+        const x = pixelIndex % diffCanvas.width;
+        const y = Math.floor(pixelIndex / diffCanvas.width);
+        sampleDiffs.push({ x, y, r, g, b, a });
+      }
+    }
+  }
+
+  console.log('Pixel Analysis:', {
+    totalDiffPixels: diffPixels,
+    sampleDifferences: sampleDiffs,
+    canvasSize: `${diffCanvas.width}x${diffCanvas.height}`,
+    percentageFromPixelCount: ((diffPixels / (diffCanvas.width * diffCanvas.height)) * 100).toFixed(4)
+  });
+}
+
+// Function to compare raw pixel data between two canvases
+function compareRawPixels(canvas1, canvas2) {
+  const ctx1 = canvas1.getContext('2d');
+  const ctx2 = canvas2.getContext('2d');
+
+  const imageData1 = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+  const imageData2 = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
+
+  const data1 = imageData1.data;
+  const data2 = imageData2.data;
+
+  let differences = [];
+  let totalDiffs = 0;
+
+  // Sample every 100th pixel to avoid overwhelming output
+  for (let i = 0; i < data1.length; i += 400) { // 400 = 4 bytes per pixel * 100 pixels
+    const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2], a1 = data1[i + 3];
+    const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2], a2 = data2[i + 3];
+
+    if (r1 !== r2 || g1 !== g2 || b1 !== b2 || a1 !== a2) {
+      totalDiffs++;
+      if (differences.length < 5) { // Only keep first 5 samples
+        const pixelIndex = i / 4;
+        const x = pixelIndex % canvas1.width;
+        const y = Math.floor(pixelIndex / canvas1.width);
+        differences.push({
+          x, y,
+          image1: { r: r1, g: g1, b: b1, a: a1 },
+          image2: { r: r2, g: g2, b: b2, a: a2 },
+          colorDiff: {
+            r: Math.abs(r1 - r2),
+            g: Math.abs(g1 - g2),
+            b: Math.abs(b1 - b2),
+            a: Math.abs(a1 - a2)
+          }
+        });
+      }
+    }
+  }
+
+  console.log('Raw Pixel Comparison (sampled):', {
+    sampledDifferences: totalDiffs,
+    sampleSize: Math.floor(data1.length / 400),
+    exampleDifferences: differences
+  });
 }
