@@ -114,7 +114,13 @@ function drawDefaultImage(canvas) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = 'white';
   ctx.font = '40px sans-serif';
-  ctx.fillText('No plot', 450, 200);
+  //ctx.fillText('No plot', 450, 200);
+}
+
+function blankoutCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(44,47,51,1)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 let graphicsReceived = false;
@@ -125,6 +131,7 @@ let graphicsReceived = false;
     switch (output.type) {
       case 'canvas':
         let canvas = document.getElementById('canvas');
+        //blankoutCanvas(canvas);
         graphicsReceived = true;
         // ctx = canvas.getContext('2d');
         // ctx.fillStyle = 'rgba(44,47,51,1)';

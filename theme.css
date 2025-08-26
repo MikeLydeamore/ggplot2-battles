@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
 }
@@ -30,7 +31,8 @@ html, body {
   border: 1px solid #ccc;
 }
 
-.compare-container img, .compare-container canvas {
+.compare-container img,
+.compare-container canvas {
   -webkit-user-drag: none;
   user-drag: none;
   position: absolute;
@@ -54,7 +56,8 @@ html, body {
   z-index: 2;
 }
 
-.left, .right {
+.left,
+.right {
   width: 50%;
 }
 
@@ -78,23 +81,29 @@ html, body {
 }
 
 .inner-box {
-  background-color: #2c2f33; /* dark, but lighter than page bg */
+  background-color: #2c2f33;
+  /* dark, but lighter than page bg */
   margin-top: 1rem;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5); /* subtle glow */
-  color: #f8f9fa;            /* Bootstrap light text */
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+  /* subtle glow */
+  color: #f8f9fa;
+  /* Bootstrap light text */
 }
 
 .compare-result {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #0dcaf0; /* Bootstrap “info” accent */
-  background-color: rgba(13, 202, 240, 0.1); /* subtle highlight */
+  color: #0dcaf0;
+  /* Bootstrap “info” accent */
+  background-color: rgba(13, 202, 240, 0.1);
+  /* subtle highlight */
   padding: 0.75rem 1.25rem;
   border-radius: 0.5rem;
   text-align: center;
   margin: 1rem auto;
   max-width: 300px;
-  border: 2px solid #0dcaf0; /* solid accent border */
+  border: 2px solid #0dcaf0;
+  /* solid accent border */
   box-shadow: 0 0 8px rgba(13, 202, 240, 0.2);
 }
 
@@ -116,7 +125,7 @@ html, body {
   background: #23272b;
   color: #f8f9fa;
   text-align: center;
-  padding: 0.75rem 0;
+  padding: 0.77rem 0;
   font-weight: 600;
   border-radius: 0;
   border-bottom: 4px solid #181a1b;
@@ -177,7 +186,13 @@ body {
 }
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.diff-button {
   font-family: 'Poppins', sans-serif;
   font-weight: 700;
   margin-top: 1.5rem;
@@ -185,12 +200,29 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
-h1 { font-size: 2.25rem; }
-h2 { font-size: 1.75rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
-h5 { font-size: 1rem; }
-h6 { font-size: 0.875rem; }
+h1 {
+  font-size: 2.25rem;
+}
+
+h2 {
+  font-size: 1.75rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+h5 {
+  font-size: 1rem;
+}
+
+h6 {
+  font-size: 0.875rem;
+}
 
 /* Paragraphs and text */
 p {
@@ -199,7 +231,10 @@ p {
 }
 
 /* Buttons and labels */
-button, input, select, label {
+button,
+input,
+select,
+label {
   font-family: 'Inter', sans-serif;
   font-weight: 500;
 }
@@ -216,7 +251,8 @@ html {
   left: 0;
   width: 100%;
   height: 100%;
-  background: #111c; /* dark with transparency */
+  background: #111c;
+  /* dark with transparency */
   display: flex;
   align-items: center;
   justify-content: center;

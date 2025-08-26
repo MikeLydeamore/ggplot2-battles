@@ -16,3 +16,5 @@ for file in "$CODE_DIR"/*.R; do
   # Copy the template file into it as index.html
   cp "$TEMPLATE" "$TARGET_DIR/$filename/index.html"
 done
+
+Rscript -e "printer.R"
