@@ -125,7 +125,7 @@ body {
   background: #23272b;
   color: #f8f9fa;
   text-align: center;
-  padding: 0.77rem 0;
+  padding: 1rem 0;
   font-weight: 600;
   border-radius: 0;
   border-bottom: 4px solid #181a1b;
@@ -192,7 +192,7 @@ h3,
 h4,
 h5,
 h6,
-.diff-button {
+#show-diff {
   font-family: 'Poppins', sans-serif;
   font-weight: 700;
   margin-top: 1.5rem;

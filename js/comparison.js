@@ -1,10 +1,19 @@
-const container = document.getElementById('sliderContainer');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const slider = document.getElementById('slider');
-const baseImage = document.getElementById('canvas-base');
-const runButton = document.getElementById('runButton');
-const result = document.getElementById('result');
+// Initialize references when DOM is ready
+let container, canvas, ctx, slider, baseImage, runButton, result;
+
+// Function to initialize DOM references
+function initializeDOMReferences() {
+  container = document.getElementById('sliderContainer');
+  canvas = document.getElementById('canvas');
+  ctx = canvas?.getContext('2d');
+  slider = document.getElementById('slider');
+  baseImage = document.getElementById('canvas-base');
+  runButton = document.getElementById('runButton');
+  result = document.getElementById('result');
+}
+
+// Try to initialize immediately, but also set up for later if elements don't exist yet
+initializeDOMReferences();
 
 // Create diff canvas (hidden by default)
 const diffCanvas = document.createElement('canvas');
@@ -24,61 +33,31 @@ diffCanvas.style.cssText = `
 // Store diff image data
 let diffImageData = null;
 
-// Add diff toggle controls next to the Plot Output header
+// Initialize diff functionality
 setTimeout(() => {
-  const plotOutputHeader = document.querySelector('.subheader-pill');
-  if (plotOutputHeader && plotOutputHeader.textContent.includes('Plot Output')) {
+  // Re-initialize DOM references in case they're now available
+  initializeDOMReferences();
 
-    const diffControls = document.createElement('div');
-    // Apply h4-like styling to match the header
-    diffControls.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0 0 1rem 0;
-      background: #23272b;
-      border-bottom: 4px solid #181a1b;
-      min-width: 20%;
-      padding: 0.74rem 0;
-    `;
+  // Add diff canvas to the slider container
+  const sliderContainer = document.getElementById('sliderContainer');
+  if (sliderContainer) {
+    sliderContainer.style.position = 'relative';
+    sliderContainer.appendChild(diffCanvas);
+  }
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'show-diff';
-    checkbox.disabled = true; // Initially disabled until comparison is run
-    checkbox.style.cssText = `
-      margin: 0;
-      transform: scale(1.0);
-      accent-color: #212529;
-    `;
-
-    const checkboxLabel = document.createElement('label');
-    checkboxLabel.htmlFor = 'show-diff';
-    checkboxLabel.textContent = 'Diff View';
-
-    diffControls.appendChild(checkbox);
-    diffControls.appendChild(checkboxLabel);
-
-    // Insert next to the header
-    plotOutputHeader.parentNode.style.display = 'flex';
-    plotOutputHeader.parentNode.style.alignItems = 'center';
-    plotOutputHeader.parentNode.style.justifyContent = 'center';
-    plotOutputHeader.parentNode.appendChild(diffControls);
-
-    // Insert diff canvas into the slider container
-    const sliderContainer = document.getElementById('sliderContainer');
-    if (sliderContainer) {
-      sliderContainer.style.position = 'relative';
-      sliderContainer.appendChild(diffCanvas);
-    }
-
-    // Handle checkbox toggle
+  // Set up checkbox event handler
+  const checkbox = document.getElementById('show-diff');
+  if (checkbox) {
+    checkbox.disabled = true;
     checkbox.addEventListener('change', function () {
-      if (this.checked && diffImageData) {
+      // Re-initialize in case canvas references are stale
+      if (!canvas) initializeDOMReferences();
+
+      if (this.checked && diffImageData && canvas) {
         // Show diff canvas
         canvas.style.display = 'none';
         diffCanvas.style.display = 'block';
-      } else {
+      } else if (canvas) {
         // Show original canvas
         canvas.style.display = 'block';
         diffCanvas.style.display = 'none';
@@ -87,32 +66,58 @@ setTimeout(() => {
   }
 }, 100);
 
-ctx.fillStyle = 'rgba(44,47,51,1)';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-ctx.fillStyle = 'white';
-ctx.font = '40px sans-serif';
-//ctx.fillText('No plot', 450, 200);
+// Setup canvas and slider functionality when elements are available
+function setupCanvasAndSlider() {
+  if (!canvas || !ctx || !container || !slider) {
+    initializeDOMReferences();
+  }
+
+  if (canvas && ctx) {
+    ctx.fillStyle = 'rgba(44,47,51,1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '40px sans-serif';
+    //ctx.fillText('No plot', 450, 200);
+  }
+
+  if (container && slider) {
+    let isDragging = false;
+    slider.addEventListener('mousedown', () => isDragging = true);
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging || !container || !canvas) return;
+      const rect = container.getBoundingClientRect();
+      updateClip(e.clientX - rect.left);
+    });
+
+    // Initial clip
+    updateClip(300);
+  }
+}
+
+// Call setup after a delay to ensure DOM is ready
+setTimeout(setupCanvasAndSlider, 200);
 
 function updateClip(x) {
+  if (!canvas || !slider) return;
   const clampedX = Math.max(0, Math.min(canvas.width, x));
   canvas.style.clipPath = `inset(0px 0px 0px ${clampedX}px)`;
   slider.style.left = `${clampedX}px`;
 }
 
-let isDragging = false;
-slider.addEventListener('mousedown', () => isDragging = true);
-window.addEventListener('mouseup', () => isDragging = false);
-window.addEventListener('mousemove', (e) => {
-  if (!isDragging) return;
-  const rect = container.getBoundingClientRect();
-  updateClip(e.clientX - rect.left);
-});
-
-// Initial clip
-updateClip(300);
-
 // Compare button
 function handleRunButtonClick() {
+  // Re-initialize DOM references in case they weren't available before
+  if (!canvas || !baseImage) {
+    initializeDOMReferences();
+  }
+
+  // Check if we have the required elements
+  if (!canvas || !baseImage) {
+    console.error("Canvas elements not found");
+    return;
+  }
+
   // Create offscreen canvases
   const offCanvas1 = document.createElement('canvas');
   const offCanvas2 = document.createElement('canvas');
@@ -185,7 +190,11 @@ function handleRunButtonClick() {
           const checkbox = document.getElementById('show-diff');
           if (checkbox) {
             checkbox.disabled = false;
-            checkbox.parentElement.style.opacity = '1';
+            // Find the checkbox container (the div with subheader-pill class)
+            const checkboxContainer = checkbox.closest('.subheader-pill');
+            if (checkboxContainer) {
+              checkboxContainer.style.opacity = '1';
+            }
           }
 
           // Add pixel analysis for debugging
