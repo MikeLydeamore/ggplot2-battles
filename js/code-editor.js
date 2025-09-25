@@ -1,7 +1,10 @@
 ace.require("ace/ext/language_tools");
 var editor = ace.edit("editor");
 editor.session.setMode("ace/mode/r");
-editor.setOptions({ fontSize: "11pt", maxLines: Infinity, minLines: 20, enableAutoIndent: true, enableBasicAutocompletion: true });
+editor.setOptions({
+  fontSize: "11pt", maxLines: Infinity, minLines: 20, enableAutoIndent: true, enableBasicAutocompletion: true,
+  enableLiveAutocompletion: true,
+  enableSnippets: true });
 editor.setTheme("ace/theme/monokai");
 editor.session.setUseWrapMode(true);
 editor.session.setTabSize(2);
@@ -106,11 +109,11 @@ if (capture.images.length > 0) {
 
 
   const canvas_target = document.getElementById("canvas-target");
-  canvas_target.style.display = 'block';
-  canvas_target.getContext("2d").drawImage(img, 0, 0);
   const ctx_target = canvas_target.getContext('2d');
   ctx_target.fillStyle = 'rgba(44,47,51,1)';
   ctx_target.fillRect(0, 0, canvas.width, canvas.height);
+  canvas_target.style.display = 'block';
+  canvas_target.getContext("2d").drawImage(img, 0, 0);
 }
 
 shelter.purge();

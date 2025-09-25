@@ -1,1 +1,27 @@
-["basic_penguins.png","basic_penguins_2.png","circle_plot.png","sir_model.png"]
+[
+  {
+    "name": ["basic_penguins_2"],
+    "title": ["Penguin Distributions"],
+    "image": ["basic_penguins_2.png"]
+  },
+  {
+    "name": ["basic_penguins"],
+    "title": ["Penguin Scatters"],
+    "image": ["basic_penguins.png"]
+  },
+  {
+    "name": ["circle_plot"],
+    "title": ["Circle with gaps"],
+    "image": ["circle_plot.png"]
+  },
+  {
+    "name": ["ggmarginal"],
+    "title": ["Marginal Distributions"],
+    "image": ["ggmarginal.png"]
+  },
+  {
+    "name": ["sir_model"],
+    "title": ["SIR Model"],
+    "image": ["sir_model.png"]
+  }
+]

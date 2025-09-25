@@ -12,14 +12,30 @@ function arrayToUnorderedList(items) {
 
 fetch('challenges-images/manifest.json')
   .then(resp => resp.json())
-  .then(images => {
+  .then(battles => {
     const container = document.querySelector('.list-battles');
-    container.innerHTML = images.map(img => {
-      const name = img.replace('.png', '');
+    container.innerHTML = battles.map(battle => {
       return `
-        <a href="challenges/${name}/index.html" class="battle-link" title="${name.replace(/_/g, ' ')}">
-          <img src="challenges-images/${img}" alt="${name.replace(/_/g, ' ')} Battle" class="battle-thumbnail">
-        </a>
+        <div class="battle-item">
+          <h5 class="battle-title">${battle.title}</h5>
+          <a href="challenges/${battle.name}/index.html" class="battle-link" title="${battle.title}">
+            <img src="challenges-images/${battle.image}" alt="${battle.title}" class="battle-thumbnail">
+          </a>
+        </div>
       `;
     }).join('');
   });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const listBattles = document.querySelector('.list-battles');
+
+  if (listBattles) {
+    listBattles.addEventListener('wheel', (e) => {
+      // Prevent default vertical scroll
+      e.preventDefault();
+
+      // Scroll horizontally instead
+      listBattles.scrollLeft += e.deltaY;
+    });
+  }
+});
