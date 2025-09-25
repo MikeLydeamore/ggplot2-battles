@@ -17,4 +17,4 @@ for file in "$CODE_DIR"/*.R; do
   cp "$TEMPLATE" "$TARGET_DIR/$filename/index.html"
 done
 
-Rscript -e "printer.R"
+Rscript printer.R
