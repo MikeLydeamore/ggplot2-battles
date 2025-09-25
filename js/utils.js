@@ -18,7 +18,7 @@ fetch('challenges-images/manifest.json')
       return `
         <div class="battle-item">
           <h5 class="battle-title">${battle.title}</h5>
-          <a href="challenges/${battle.name}/index.html" class="battle-link" title="${battle.title}">
+          <a href="challenges/${battle.name}/" class="battle-link" title="${battle.title}">
             <img src="challenges-images/${battle.image}" alt="${battle.title}" class="battle-thumbnail">
           </a>
         </div>
