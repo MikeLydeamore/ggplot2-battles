@@ -23,5 +23,10 @@
     "name": ["sir_model"],
     "title": ["SIR Model"],
     "image": ["sir_model.png"]
+  },
+  {
+    "name": ["violin_combo"],
+    "title": ["Combo Plots"],
+    "image": ["violin_combo.png"]
   }
 ]

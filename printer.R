@@ -33,7 +33,8 @@ for (fname in files) {
   cowplot::save_plot(
     filename = paste0("challenges-images/", name, ".png"),
     plot = plot_obj,
-    base_aspect_ratio = 1.75
+    base_aspect_ratio = 1.75,
+    bg = "white"
   )
 
   battles[[length(battles) + 1]] <- list(
