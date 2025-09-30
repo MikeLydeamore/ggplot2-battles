@@ -53,6 +53,7 @@ const response = await fetch(`../../challenges-code/${pagename}.R`);
 let code = await response.text();
 code = code.replace(/\r\n/g, '\n');
 
+let prerun_code
 
 async function init() {
   try {
@@ -65,6 +66,8 @@ async function init() {
 
     const options = extractHashpipe(code);
     console.log(options);
+
+    prerun_code = options["prerun-code"] || "";
 
     document.querySelector('#dataset-name').innerHTML = options["dataset-name"];
     document.querySelector('#target-title').innerHTML = options["title"];
@@ -86,9 +89,6 @@ async function init() {
 }
 
 init();
-
-
-
 
 const capture = await shelter.captureR(code, {
   captureGraphics: {
@@ -170,6 +170,10 @@ async function runR() {
   graphicsReceived = false;
   plotSequenceStarted = false; // Reset plot sequence tracking
   let code = editor.getValue();
+
+  if (prerun_code) {
+    code = prerun_code + "\n" + code;
+  }
   const result = await shelter.captureR(code, {
     withAutoprint: true,
     captureStreams: true,

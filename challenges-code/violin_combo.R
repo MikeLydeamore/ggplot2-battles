@@ -2,6 +2,7 @@
 #| dataset-name: "spreads"
 #| description: "Trying to plot summaries people understand with more complex plots that show the full distribution. You'll need to combine your geoms and stats to succeed."
 #| colours: "`c('gray30','gray15')`"
+#| prerun-code: "set.seed(42)"
 
 library(ggplot2)
 library(dplyr)
@@ -17,6 +18,8 @@ spreads <- tibble::tibble(
         rexp(n, rate = 1) + 1 # C: Exponential shifted right
     )
 )
+
+set.seed(42)
 
 p <- ggplot(spreads, aes(x = Group, y = Value, fill = Group)) +
     # Violin shows full distribution
