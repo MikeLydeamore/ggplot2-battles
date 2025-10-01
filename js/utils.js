@@ -10,8 +10,6 @@ function arrayToUnorderedList(items) {
   return ul;
 }
 
-const container = document.querySelector('.list-battles');
-if (container) {
   fetch('challenges-images/manifest.json')
     .then(resp => resp.json())
     .then(battles => {
@@ -27,7 +25,6 @@ if (container) {
       `;
       }).join('');
     });
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   const listBattles = document.querySelector('.list-battles');
