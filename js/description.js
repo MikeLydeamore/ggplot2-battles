@@ -12,6 +12,8 @@ class EditorViewer extends HTMLElement {
   async connectedCallback() {
     const resp = await fetch('../../js/editor-viewer.html');
     this.innerHTML = await resp.text();
+
+    this.dispatchEvent(new CustomEvent('editor-ready', { bubbles: true }));
   }
 }
 
