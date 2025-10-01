@@ -105,7 +105,7 @@ document.addEventListener('editor-ready', async () => {
   // Set up button after everything is ready
   document.getElementById('runButton').addEventListener('click', run_and_compare);
   document.getElementById('runButton').innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle;">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:middle; margin-right: 0.4rem;">
       <polygon points="5,3 17,10 5,17"/>
     </svg> Run & Compare
   `;
