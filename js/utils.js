@@ -10,12 +10,14 @@ function arrayToUnorderedList(items) {
   return ul;
 }
 
-fetch('challenges-images/manifest.json')
-  .then(resp => resp.json())
-  .then(battles => {
-    const container = document.querySelector('.list-battles');
-    container.innerHTML = battles.map(battle => {
-      return `
+const container = document.querySelector('.list-battles');
+if (container) {
+  fetch('challenges-images/manifest.json')
+    .then(resp => resp.json())
+    .then(battles => {
+      const container = document.querySelector('.list-battles');
+      container.innerHTML = battles.map(battle => {
+        return `
         <div class="battle-item">
           <h5 class="battle-title">${battle.title}</h5>
           <a href="challenges/${battle.name}/" class="battle-link" title="${battle.title}">
@@ -23,8 +25,9 @@ fetch('challenges-images/manifest.json')
           </a>
         </div>
       `;
-    }).join('');
-  });
+      }).join('');
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const listBattles = document.querySelector('.list-battles');
