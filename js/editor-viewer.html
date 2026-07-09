@@ -1,39 +1,103 @@
-<div class="two-column-layout">
-  <div class="left inner-box">
-    <div class="code-window">
-      <div class="editor-header-row">
-        <h4 class="text-center">Editor</h4>
-        <button class="btn btn-success btn-sm" disabled type="button" id="runButton">Loading webR...</button>
-      </div>
-      <div class="padding">
-        <div id="editor">ggplot()</div>
-        <pre><code id="out"></code></pre>
-      </div>
+<div class="battle-ide-shell">
+  <details class="battle-details-panel" open>
+    <summary>
+      <span class="battle-details-title">Battle details</span>
+      <span class="battle-details-name" id="target-title"></span>
+    </summary>
+
+    <div class="battle-details-content">
+      <section class="battle-details-section">
+        <h5>Target</h5>
+        <p id="target-description"></p>
+      </section>
+
+      <section class="battle-details-section">
+        <h5>Key information</h5>
+        <p>Dataset name: <code><span id="dataset-name"></span></code></p>
+        <p id="target-colours" style="visibility: hidden;"></p>
+        <p>Preinstalled packages: <span class="required-packages"></span></p>
+        <p>Other packages can be preinstalled using <code>install.packages</code> inside the editor.</p>
+      </section>
     </div>
+  </details>
+
+  <div class="ide-top-bar">
+    <div class="ide-title">ggplot battle workspace</div>
+    <div class="compare-result">
+      <span class="compare-result-label">Similarity</span>
+      <span id="similarity-score">N/A</span>
+    </div>
+    <button class="btn btn-success btn-sm ide-run-button" disabled type="button" id="runButton">Loading webR...</button>
   </div>
 
-  <div class="right mx-auto text-center inner-box">
-    <div class="mx-auto text-center">
-      <div style="display: flex; align-items: center; justify-content: center; position: relative;">
-        <h4 class="subheader-pill" style="flex: 1; text-align: center;">Plot Output</h4>
-        <label style="position: absolute; right: 5%; text-align: center;
-        padding-bottom: 2rem;">
-          <input type="checkbox" id="show-diff"> Diff View
+  <div class="ide-workspace">
+    <section class="ide-panel ide-editor-panel">
+      <div class="ide-panel-header ide-editor-header">
+        <div class="script-tabs" id="script-tabs" role="tablist" aria-label="Open scripts"></div>
+        <div class="script-actions" aria-label="Script actions">
+          <button class="script-tab-add" id="add-script-tab" type="button" title="New script"
+            aria-label="New script">+</button>
+        </div>
+      </div>
+      <div class="ide-panel-body ide-editor-body">
+        <div id="editor">ggplot()</div>
+      </div>
+    </section>
+
+    <section class="ide-panel ide-target-panel">
+      <div class="ide-panel-header ide-reference-header">
+        <div class="panel-tabs" role="tablist" aria-label="Reference pane">
+          <button class="panel-tab is-active" type="button" id="target-plot-tab" role="tab" aria-selected="true"
+            aria-controls="target-plot-panel" data-reference-tab="target-plot-panel">Target plot</button>
+          <button class="panel-tab" type="button" id="variables-tab" role="tab" aria-selected="false"
+            aria-controls="variables-panel" data-reference-tab="variables-panel">Variables</button>
+        </div>
+      </div>
+      <div class="ide-panel-body ide-reference-body">
+        <div class="reference-panel ide-plot-body is-active" id="target-plot-panel" role="tabpanel"
+          aria-labelledby="target-plot-tab">
+          <canvas id="canvas-target" class="plot-canvas" width="700" height="400" style="display: none;"></canvas>
+        </div>
+        <div class="reference-panel variables-panel" id="variables-panel" role="tabpanel"
+          aria-labelledby="variables-tab" hidden>
+          <div class="variables-list" id="variables-list">
+            <p class="variables-empty">Variables will appear after the battle loads.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ide-panel ide-terminal-panel">
+      <div class="ide-panel-header">
+        <span class="ide-panel-title">Terminal</span>
+      </div>
+      <div class="ide-panel-body terminal-body">
+        <div class="terminal-scroll" id="terminal-scroll">
+          <pre><code id="out"></code></pre>
+        </div>
+        <form class="terminal-input-row" id="terminal-form" autocomplete="off">
+          <label class="terminal-prompt" for="terminal-input">&gt;</label>
+          <input id="terminal-input" type="text" spellcheck="false" autocapitalize="off" disabled>
+        </form>
+      </div>
+    </section>
+
+    <section class="ide-panel ide-output-panel">
+      <div class="ide-panel-header ide-output-header">
+        <span class="ide-panel-title">Your plot</span>
+        <label class="diff-toggle">
+          <input type="checkbox" id="show-diff"> Diff
         </label>
       </div>
-    </div>
-    <div class="compare-container mx-auto text-center padding" id="sliderContainer">
-      <canvas id="canvas-base" width="700" height="400" style="display: none;"></canvas>
-      <canvas id="canvas" width="700" height="400"></canvas>
-      <div class="slider" id="slider" style="left: 300px;"></div>
-    </div>
-
-    <div class="compare-result">
-      <span class="text-muted" style="color: #adb5bd; font-size: 1.75rem;">Similarity:</span>
-      <span id="similarity-score" style="color: #0dcaf0; font-weight: 600; font-size: 1.75rem;">N/A</span>
-    </div>
+      <div class="ide-panel-body ide-output-body">
+        <div class="compare-container" id="sliderContainer">
+          <canvas id="canvas-base" width="700" height="400" style="display: none;"></canvas>
+          <canvas id="canvas" width="700" height="400"></canvas>
+          <div class="slider" id="slider"></div>
+        </div>
+      </div>
+    </section>
   </div>
-
 </div>
 
 <div class="leaderboard-wrapper">

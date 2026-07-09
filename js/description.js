@@ -5,7 +5,7 @@ async function loadFragment(element, path) {
 
 class BattleDescription extends HTMLElement {
   async connectedCallback() {
-    await loadFragment(this, '../../js/battle-description.html');
+    this.remove();
   }
 }
 

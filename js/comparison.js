@@ -5,6 +5,7 @@ let sliderHandle;
 let diffToggle;
 let similarityScore;
 let scoreAnimation;
+let syncedPlotWidth = null;
 
 const diffCanvas = document.createElement('canvas');
 diffCanvas.id = 'diff-canvas';
@@ -33,7 +34,6 @@ function setupComparisonView() {
   similarityScore = document.getElementById('similarity-score');
 
   if (!sliderContainer || !userCanvas || !targetCanvas || !sliderHandle) {
-    console.error('Comparison elements were not found.');
     return;
   }
 
@@ -41,8 +41,10 @@ function setupComparisonView() {
 
   fillInitialCanvas(userCanvas);
   setupDiffCanvas();
+  syncPlotSizes();
   setupSlider();
   setupDiffToggle();
+  setupResizeObserver();
 }
 
 function fillInitialCanvas(canvas) {
@@ -77,7 +79,7 @@ function setupSlider() {
     sliderHandle.releasePointerCapture(event.pointerId);
   });
 
-  updateClip(userCanvas.width / 2);
+  updateClip(sliderContainer.getBoundingClientRect().width / 2);
 }
 
 function setupDiffToggle() {
@@ -90,9 +92,66 @@ function setupDiffToggle() {
 function updateClip(x) {
   if (!userCanvas || !sliderHandle) return;
 
-  const clampedX = Math.max(0, Math.min(userCanvas.width, x));
+  const containerWidth = sliderContainer.getBoundingClientRect().width;
+  const clampedX = Math.max(0, Math.min(containerWidth, x));
   userCanvas.style.clipPath = `inset(0px 0px 0px ${clampedX}px)`;
   sliderHandle.style.left = `${clampedX}px`;
+}
+
+function setupResizeObserver() {
+  if (!('ResizeObserver' in window)) return;
+
+  const observer = new ResizeObserver(() => {
+    syncPlotSizes();
+  });
+  observer.observe(sliderContainer);
+
+  const targetBody = document.querySelector('.ide-plot-body');
+  const outputBody = document.querySelector('.ide-output-body');
+  if (targetBody) {
+    observer.observe(targetBody);
+  }
+  if (outputBody) {
+    observer.observe(outputBody);
+  }
+}
+
+function syncPlotSizes() {
+  const targetBody = document.querySelector('.ide-plot-body');
+  const outputBody = document.querySelector('.ide-output-body');
+  if (!targetBody || !outputBody) return;
+
+  const targetSize = getContentSize(targetBody);
+  const outputSize = getContentSize(outputBody);
+  const width = Math.floor(Math.min(
+    700,
+    targetSize.width,
+    outputSize.width,
+    targetSize.height * 1.75,
+    outputSize.height * 1.75
+  ));
+  if (!Number.isFinite(width) || width <= 0) return;
+
+  if (width !== syncedPlotWidth) {
+    document.documentElement.style.setProperty('--plot-width', `${width}px`);
+    syncedPlotWidth = width;
+  }
+  updateClip(width / 2);
+}
+
+function getContentSize(element) {
+  const style = window.getComputedStyle(element);
+  const width = element.clientWidth
+    - parseFloat(style.paddingLeft)
+    - parseFloat(style.paddingRight);
+  const height = element.clientHeight
+    - parseFloat(style.paddingTop)
+    - parseFloat(style.paddingBottom);
+
+  return {
+    width: Math.max(0, width),
+    height: Math.max(0, height)
+  };
 }
 
 function compareRenderedPlot() {
@@ -217,3 +276,4 @@ function dispatchScore(score) {
 }
 
 window.compareRenderedPlot = compareRenderedPlot;
+window.syncPlotSizes = syncPlotSizes;

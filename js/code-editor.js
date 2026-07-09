@@ -3,7 +3,18 @@ import { initLeaderboard } from './leaderboard.js';
 let editor;
 let shelter;
 let webR;
+let sessionEnv;
 let preRunCode = '';
+let scriptTabs = [];
+let activeScriptId = null;
+let scriptSequence = 1;
+let terminalInput;
+let terminalOutput;
+let terminalScroll;
+let terminalAvailable = false;
+let terminalBusy = false;
+let terminalHistory = [];
+let terminalHistoryIndex = 0;
 
 const PLOT_BACKGROUND = 'rgba(255,255,255,1)';
 const WEBR_GRAPHICS_SIZE = { width: 350, height: 200 };
@@ -25,19 +36,27 @@ async function initializeEditor() {
   const challengeId = getChallengeId();
 
   editor = setupEditor();
+  setupScriptTabs();
+  setupReferenceTabs();
+  setupTerminal();
   initLeaderboard({
     challengeId,
-    getCode: () => editor.getValue()
+    getCode: () => {
+      saveActiveScript();
+      return editor.getValue();
+    }
   });
 
   try {
     await initializeWebR();
     const challengeSource = await loadChallengeSource(challengeId);
     await initializeChallenge(challengeSource);
+    setTerminalAvailable(true);
     setRunButtonReady(runButton);
   } catch (err) {
     console.error('Error initializing challenge:', err);
     writeOutput(`Error initializing challenge: ${err.message}`);
+    setTerminalAvailable(false, 'Unable to load webR');
     if (runButton) {
       runButton.textContent = 'Unable to load';
       runButton.disabled = true;
@@ -58,8 +77,6 @@ function setupEditor() {
   aceEditor.session.setMode('ace/mode/r');
   aceEditor.setOptions({
     fontSize: '11pt',
-    maxLines: Infinity,
-    minLines: 20,
     enableAutoIndent: true,
     enableBasicAutocompletion: true,
     enableLiveAutocompletion: true,
@@ -68,8 +85,696 @@ function setupEditor() {
   aceEditor.setTheme('ace/theme/monokai');
   aceEditor.session.setUseWrapMode(true);
   aceEditor.session.setTabSize(2);
+  addEditorRunShortcut(aceEditor, 'runSelectionCtrlEnter', 'Ctrl-Enter');
+  addEditorRunShortcut(aceEditor, 'runSelectionCommandEnter', 'Command-Enter');
+  window.addEventListener('resize', () => aceEditor.resize());
 
   return aceEditor;
+}
+
+function addEditorRunShortcut(aceEditor, name, bindKey) {
+  aceEditor.commands.addCommand({
+    name,
+    bindKey: {
+      win: bindKey,
+      mac: bindKey
+    },
+    exec: runEditorSelectionOrCurrentLine
+  });
+}
+
+async function runEditorSelectionOrCurrentLine() {
+  if (!editor || terminalBusy || !terminalAvailable) return;
+
+  const code = getSelectedOrCurrentExpression();
+  if (!code.trim()) return;
+
+  saveActiveScript();
+  await runSessionCode(code, {
+    busyText: 'Running selection...',
+    refocus: () => editor.focus()
+  });
+}
+
+function getSelectedOrCurrentExpression() {
+  const selectedText = editor.getSelectedText();
+  if (selectedText.trim()) {
+    return selectedText.trimEnd();
+  }
+
+  const cursor = editor.getCursorPosition();
+  const lines = getEditorLines();
+  return getRChunkAtRow(lines, cursor.row).join('\n').trimEnd();
+}
+
+function getEditorLines() {
+  return Array.from(
+    { length: editor.session.getLength() },
+    (_, row) => editor.session.getLine(row)
+  );
+}
+
+function getRChunkAtRow(lines, row) {
+  if (lines.length === 0) return [''];
+
+  let start = row;
+  let end = row;
+
+  while (start > 0 && areRLineRowsConnected(lines, start - 1, start)) {
+    start -= 1;
+  }
+
+  while (end < lines.length - 1 && areRLineRowsConnected(lines, end, end + 1)) {
+    end += 1;
+  }
+
+  return lines.slice(start, end + 1);
+}
+
+function areRLineRowsConnected(lines, previousRow, nextRow) {
+  return areRLinesConnected(lines[previousRow], lines[nextRow])
+    || commentLineBridgesRContinuation(lines, previousRow, nextRow);
+}
+
+function areRLinesConnected(previousLine, nextLine) {
+  if (isBlankLine(previousLine) || isBlankLine(nextLine)) return false;
+
+  return lineContinuesRExpression(previousLine) || lineBeginsRContinuation(nextLine);
+}
+
+function commentLineBridgesRContinuation(lines, commentRow, nextRow) {
+  if (!isCommentOnlyLine(lines[commentRow]) || isBlankLine(lines[nextRow])) return false;
+
+  const previousCodeRow = findPreviousCodeLine(lines, commentRow - 1);
+  return previousCodeRow !== -1 && lineContinuesRExpression(lines[previousCodeRow]);
+}
+
+function findPreviousCodeLine(lines, row) {
+  for (let index = row; index >= 0; index -= 1) {
+    if (isBlankLine(lines[index])) return -1;
+    if (!isCommentOnlyLine(lines[index])) return index;
+  }
+
+  return -1;
+}
+
+function lineContinuesRExpression(line) {
+  const code = stripRCommentsAndStrings(line).trimEnd();
+  if (!code) return false;
+
+  return hasUnclosedDelimiter(code) || rContinuationEndPattern().test(code);
+}
+
+function lineBeginsRContinuation(line) {
+  const code = stripRCommentsAndStrings(line).trimStart();
+  if (!code) return false;
+
+  return /^(\|>|%>%|\+|,|\)|\]|\}|else\b|&&?|\|\|?|\*|\/|\^|==|!=|<=|>=|<|>|%[^%]+%)/.test(code);
+}
+
+function rContinuationEndPattern() {
+  return /(\|>|%>%|\+|,|<-|<<-|->|->>|=|~|&&?|\|\|?|==|!=|<=|>=|<|>|\*|\/|\^|\$|@|:|%[^%]+%)\s*$/;
+}
+
+function hasUnclosedDelimiter(code) {
+  const pairs = { '(': ')', '[': ']', '{': '}' };
+  const stack = [];
+
+  for (const char of code) {
+    if (pairs[char]) {
+      stack.push(pairs[char]);
+    } else if (char === ')' || char === ']' || char === '}') {
+      if (stack[stack.length - 1] === char) {
+        stack.pop();
+      }
+    }
+  }
+
+  return stack.length > 0;
+}
+
+function stripRCommentsAndStrings(line) {
+  let output = '';
+  let quote = null;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+
+    if (quote) {
+      if (quote !== '`' && char === '\\') {
+        output += ' ';
+        index += 1;
+        output += ' ';
+        continue;
+      }
+
+      if (char === quote) {
+        quote = null;
+      }
+      output += ' ';
+      continue;
+    }
+
+    if (char === '#') break;
+
+    if (char === '"' || char === "'" || char === '`') {
+      quote = char;
+      output += ' ';
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function isBlankLine(line) {
+  return line.trim() === '';
+}
+
+function isCommentOnlyLine(line) {
+  return line.trim().startsWith('#');
+}
+
+function setupScriptTabs() {
+  const tabsContainer = document.getElementById('script-tabs');
+  const addButton = document.getElementById('add-script-tab');
+  const contextMenu = createScriptContextMenu();
+  if (!tabsContainer) return;
+
+  tabsContainer.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) return;
+
+    const tabButton = event.target.closest('[data-script-id]');
+    if (!tabButton || !tabsContainer.contains(tabButton)) return;
+
+    if (event.target.closest('[data-script-close]')) {
+      closeScriptTab(tabButton.dataset.scriptId);
+      return;
+    }
+
+    switchScriptTab(tabButton.dataset.scriptId);
+  });
+
+  tabsContainer.addEventListener('dblclick', event => {
+    if (!(event.target instanceof Element)) return;
+
+    const tabButton = event.target.closest('[data-script-id]');
+    if (!tabButton || !tabsContainer.contains(tabButton)) return;
+    if (event.target.closest('[data-script-close]')) return;
+
+    renameScriptTab(tabButton.dataset.scriptId);
+  });
+
+  tabsContainer.addEventListener('contextmenu', event => {
+    if (!(event.target instanceof Element)) return;
+
+    const tabButton = event.target.closest('[data-script-id]');
+    if (!tabButton || !tabsContainer.contains(tabButton)) return;
+
+    event.preventDefault();
+    switchScriptTab(tabButton.dataset.scriptId);
+    openScriptContextMenu(tabButton.dataset.scriptId, event.clientX, event.clientY);
+  });
+
+  contextMenu?.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) return;
+
+    const actionButton = event.target.closest('[data-script-action]');
+    if (!actionButton || !contextMenu.contains(actionButton)) return;
+
+    const scriptId = contextMenu.dataset.scriptId;
+    closeScriptContextMenu();
+
+    if (actionButton.dataset.scriptAction === 'rename') {
+      renameScriptTab(scriptId);
+    } else if (actionButton.dataset.scriptAction === 'download') {
+      downloadScriptTab(scriptId);
+    }
+
+    editor?.focus();
+  });
+
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) return;
+    if (contextMenu?.contains(event.target)) return;
+
+    closeScriptContextMenu();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeScriptContextMenu();
+    }
+  });
+  window.addEventListener('resize', closeScriptContextMenu);
+
+  addButton?.addEventListener('click', addScriptTab);
+}
+
+function initializeScriptTabs(starterCode) {
+  scriptSequence = 1;
+  scriptTabs = [{
+    id: 'script-1',
+    name: 'script.R',
+    code: starterCode
+  }];
+  activeScriptId = scriptTabs[0].id;
+  renderScriptTabs();
+  loadActiveScriptIntoEditor();
+}
+
+function addScriptTab() {
+  saveActiveScript();
+  scriptSequence += 1;
+
+  const script = {
+    id: `script-${scriptSequence}`,
+    name: `script-${scriptSequence}.R`,
+    code: ''
+  };
+  scriptTabs.push(script);
+  switchScriptTab(script.id);
+}
+
+function switchScriptTab(scriptId) {
+  if (scriptId === activeScriptId) return;
+  if (!scriptTabs.some(script => script.id === scriptId)) return;
+
+  saveActiveScript();
+  activeScriptId = scriptId;
+  renderScriptTabs();
+  loadActiveScriptIntoEditor();
+}
+
+function closeScriptTab(scriptId) {
+  if (scriptTabs.length <= 1) return;
+
+  const tabIndex = scriptTabs.findIndex(script => script.id === scriptId);
+  if (tabIndex === -1) return;
+
+  const closingActiveTab = scriptId === activeScriptId;
+  if (closingActiveTab) {
+    saveActiveScript();
+  }
+
+  scriptTabs.splice(tabIndex, 1);
+
+  if (closingActiveTab) {
+    const nextIndex = Math.max(0, tabIndex - 1);
+    activeScriptId = scriptTabs[nextIndex].id;
+    loadActiveScriptIntoEditor();
+  }
+
+  renderScriptTabs();
+}
+
+function renameScriptTab(scriptId) {
+  const script = scriptTabs.find(tab => tab.id === scriptId);
+  if (!script) return;
+
+  const nextName = window.prompt('Rename script', script.name);
+  if (nextName === null) return;
+
+  const normalizedName = normalizeScriptName(nextName);
+  if (!normalizedName) return;
+
+  script.name = normalizedName;
+  renderScriptTabs();
+}
+
+function createScriptContextMenu() {
+  let contextMenu = document.getElementById('script-context-menu');
+  if (contextMenu) return contextMenu;
+
+  contextMenu = document.createElement('div');
+  contextMenu.className = 'script-context-menu';
+  contextMenu.id = 'script-context-menu';
+  contextMenu.hidden = true;
+  contextMenu.setAttribute('role', 'menu');
+
+  const renameButton = createScriptContextMenuButton('rename', 'Rename');
+  const downloadButton = createScriptContextMenuButton('download', 'Download');
+  contextMenu.append(renameButton, downloadButton);
+  document.body.append(contextMenu);
+
+  return contextMenu;
+}
+
+function createScriptContextMenuButton(action, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.scriptAction = action;
+  button.setAttribute('role', 'menuitem');
+  button.textContent = label;
+  return button;
+}
+
+function openScriptContextMenu(scriptId, x, y) {
+  const contextMenu = createScriptContextMenu();
+  if (!contextMenu) return;
+
+  contextMenu.dataset.scriptId = scriptId;
+  contextMenu.style.visibility = 'hidden';
+  contextMenu.hidden = false;
+
+  const menuRect = contextMenu.getBoundingClientRect();
+  const left = Math.min(x, window.innerWidth - menuRect.width - 8);
+  const top = Math.min(y, window.innerHeight - menuRect.height - 8);
+
+  contextMenu.style.left = `${Math.max(8, left)}px`;
+  contextMenu.style.top = `${Math.max(8, top)}px`;
+  contextMenu.style.visibility = 'visible';
+}
+
+function closeScriptContextMenu() {
+  const contextMenu = document.getElementById('script-context-menu');
+  if (!contextMenu || contextMenu.hidden) return;
+
+  contextMenu.hidden = true;
+  contextMenu.style.visibility = '';
+  delete contextMenu.dataset.scriptId;
+}
+
+function normalizeScriptName(name) {
+  const normalizedName = name.trim().replace(/\s+/g, ' ');
+  if (!normalizedName) return '';
+
+  return normalizedName.toLowerCase().endsWith('.r')
+    ? normalizedName
+    : `${normalizedName}.R`;
+}
+
+function downloadScriptTab(scriptId) {
+  if (scriptId === activeScriptId) {
+    saveActiveScript();
+  }
+
+  const script = scriptTabs.find(tab => tab.id === scriptId);
+  if (!script) return;
+
+  const blob = new Blob([script.code], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = getDownloadFilename(script.name);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getDownloadFilename(scriptName) {
+  const normalizedName = normalizeScriptName(scriptName) || 'script.R';
+  const safeName = normalizedName
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/^\.+/, '')
+    .slice(0, 80);
+
+  return safeName || 'script.R';
+}
+
+function saveActiveScript() {
+  const script = getActiveScript();
+  if (script && editor) {
+    script.code = editor.getValue();
+  }
+}
+
+function loadActiveScriptIntoEditor() {
+  const script = getActiveScript();
+  if (!script || !editor) return;
+
+  editor.setValue(script.code, -1);
+  editor.resize();
+  editor.focus();
+}
+
+function getActiveScript() {
+  return scriptTabs.find(script => script.id === activeScriptId);
+}
+
+function renderScriptTabs() {
+  const tabsContainer = document.getElementById('script-tabs');
+  if (!tabsContainer) return;
+
+  const tabButtons = scriptTabs.map(script => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `script-tab${script.id === activeScriptId ? ' is-active' : ''}`;
+    button.dataset.scriptId = script.id;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(script.id === activeScriptId));
+    button.title = script.name;
+
+    const label = document.createElement('span');
+    label.className = 'script-tab-label';
+    label.textContent = script.name;
+    button.append(label);
+
+    if (scriptTabs.length > 1) {
+      const close = document.createElement('span');
+      close.className = 'script-tab-close';
+      close.dataset.scriptClose = '';
+      close.textContent = 'x';
+      close.title = `Close ${script.name}`;
+      button.append(close);
+    }
+
+    return button;
+  });
+
+  tabsContainer.replaceChildren(...tabButtons);
+}
+
+function setupReferenceTabs() {
+  const tabs = document.querySelectorAll('[data-reference-tab]');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => showReferencePanel(tab.dataset.referenceTab));
+  });
+}
+
+function showReferencePanel(panelId) {
+  const tabs = document.querySelectorAll('[data-reference-tab]');
+  const panels = document.querySelectorAll('.reference-panel');
+
+  tabs.forEach(tab => {
+    const isActive = tab.dataset.referenceTab === panelId;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+
+  panels.forEach(panel => {
+    const isActive = panel.id === panelId;
+    panel.classList.toggle('is-active', isActive);
+    panel.hidden = !isActive;
+  });
+
+  if (panelId === 'target-plot-panel') {
+    window.syncPlotSizes?.();
+  }
+}
+
+function setupTerminal() {
+  terminalInput = document.getElementById('terminal-input');
+  terminalOutput = document.getElementById('out');
+  terminalScroll = document.getElementById('terminal-scroll');
+
+  const terminalForm = document.getElementById('terminal-form');
+  const terminalBody = document.querySelector('.terminal-body');
+  if (!terminalInput || !terminalOutput || !terminalForm) return;
+
+  setTerminalAvailable(false, 'Loading webR...');
+
+  terminalForm.addEventListener('submit', event => {
+    event.preventDefault();
+    runTerminalCommand();
+  });
+
+  terminalInput.addEventListener('keydown', handleTerminalKeydown);
+  terminalBody?.addEventListener('click', () => terminalInput.focus());
+}
+
+function setTerminalAvailable(available, placeholder = '') {
+  terminalAvailable = available;
+  updateTerminalInputState(placeholder);
+}
+
+function setTerminalBusy(busy, placeholder = '') {
+  terminalBusy = busy;
+  updateTerminalInputState(placeholder);
+}
+
+function updateTerminalInputState(placeholder = '') {
+  if (!terminalInput) return;
+
+  const disabled = !terminalAvailable || terminalBusy;
+  terminalInput.disabled = disabled;
+  terminalInput.placeholder = disabled ? placeholder : '';
+}
+
+function handleTerminalKeydown(event) {
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    recallTerminalHistory(-1);
+    return;
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    recallTerminalHistory(1);
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
+    event.preventDefault();
+    clearTerminalOutput();
+  }
+}
+
+function recallTerminalHistory(direction) {
+  if (!terminalInput || terminalHistory.length === 0) return;
+
+  terminalHistoryIndex = Math.max(
+    0,
+    Math.min(terminalHistory.length, terminalHistoryIndex + direction)
+  );
+  terminalInput.value = terminalHistory[terminalHistoryIndex] || '';
+
+  requestAnimationFrame(() => {
+    terminalInput.selectionStart = terminalInput.value.length;
+    terminalInput.selectionEnd = terminalInput.value.length;
+  });
+}
+
+async function runTerminalCommand() {
+  if (!terminalInput || !terminalAvailable || terminalBusy || !shelter) return;
+
+  const command = terminalInput.value.trimEnd();
+  if (!command.trim()) return;
+
+  addTerminalHistory(command);
+  terminalInput.value = '';
+  await runSessionCode(command, {
+    busyText: 'Running command...',
+    refocus: () => terminalInput.focus()
+  });
+}
+
+async function runSessionCode(code, options = {}) {
+  if (!terminalAvailable || terminalBusy || !shelter) return;
+
+  const command = code.trimEnd();
+  if (!command.trim()) return;
+
+  appendTerminalCommand(command);
+  setTerminalBusy(true, options.busyText || 'Running code...');
+
+  const runButton = document.getElementById('runButton');
+  if (runButton) {
+    runButton.disabled = true;
+  }
+
+  let capture;
+  try {
+    capture = await captureSessionR(command, {
+      withAutoprint: true,
+      captureStreams: true,
+      captureGraphics: WEBR_GRAPHICS_SIZE,
+      captureConditions: false
+    });
+    const output = getCaptureOutputText(capture);
+
+    if (output) {
+      appendTerminalText(output);
+    }
+
+    if (capture.images?.length > 0) {
+      const image = capture.images[capture.images.length - 1];
+      drawImageToCanvas(document.getElementById('canvas'), image);
+    }
+  } catch (err) {
+    console.error('Error running R code:', err);
+    appendTerminalText(`Error: ${err.message}`);
+  } finally {
+    await destroyCaptureResult(capture);
+    await refreshVariables();
+    setTerminalBusy(false);
+    setRunButtonReady(runButton);
+    options.refocus?.();
+  }
+}
+
+function addTerminalHistory(command) {
+  if (terminalHistory[terminalHistory.length - 1] !== command) {
+    terminalHistory.push(command);
+  }
+  terminalHistoryIndex = terminalHistory.length;
+}
+
+function getCaptureOutputText(capture) {
+  return (capture.output || [])
+    .filter(evt => evt.type === 'stdout' || evt.type === 'stderr')
+    .map(evt => evt.data)
+    .join('\n')
+    .trimEnd();
+}
+
+function appendTerminalText(message) {
+  terminalOutput ||= document.getElementById('out');
+  if (!terminalOutput || !message) return;
+
+  const currentOutput = terminalOutput.textContent;
+  terminalOutput.textContent = currentOutput
+    ? `${currentOutput}\n${message}`
+    : message;
+  scrollTerminalToBottom();
+}
+
+function appendTerminalCommand(command) {
+  appendTerminalText(formatTerminalCommand(command));
+}
+
+function formatTerminalCommand(command) {
+  return command
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line, index) => `${index === 0 ? '>' : '+'} ${line}`)
+    .join('\n');
+}
+
+function clearTerminalOutput() {
+  terminalOutput ||= document.getElementById('out');
+  if (terminalOutput) {
+    terminalOutput.textContent = '';
+  }
+}
+
+function scrollTerminalToBottom() {
+  terminalScroll ||= document.getElementById('terminal-scroll');
+  if (terminalScroll) {
+    terminalScroll.scrollTop = terminalScroll.scrollHeight;
+  }
+}
+
+function getSessionEvalOptions(options = {}) {
+  if (!sessionEnv) return options;
+  return { env: sessionEnv, ...options };
+}
+
+async function captureSessionR(code, options = {}) {
+  return shelter.captureR(code, getSessionEvalOptions(options));
+}
+
+async function destroyCaptureResult(capture) {
+  if (!capture?.result) return;
+
+  try {
+    await shelter.destroy(capture.result);
+  } catch (err) {
+    console.warn('Unable to release captured R result:', err);
+  }
 }
 
 async function initializeWebR() {
@@ -78,6 +783,7 @@ async function initializeWebR() {
   await webR.init();
   await webR.evalRVoid('options(device=function(...){webr::canvas(width=350, height=200)})');
   shelter = await new webR.Shelter();
+  sessionEnv = await shelter.evalR('new.env(parent = .GlobalEnv)');
   await webR.evalRVoid('webr::shim_install()');
 }
 
@@ -104,6 +810,8 @@ async function initializeChallenge(challengeSource) {
   renderChallengeDetails(options);
   setStarterCode(options);
   await renderTargetPlot(challengeSource);
+  await cleanupTargetWorkspace(options);
+  await refreshVariables();
 }
 
 function renderRequiredPackages(requiredPackages) {
@@ -143,14 +851,15 @@ function setStarterCode(options) {
     ? options.stub.replace(/\\n/g, '\n')
     : `${options['dataset-name']} |>\n  ggplot()`;
 
-  editor.setValue(starterCode, -1);
+  initializeScriptTabs(starterCode);
 }
 
 async function renderTargetPlot(challengeSource) {
   let capture;
   try {
-    capture = await shelter.captureR(challengeSource, {
-      captureGraphics: WEBR_GRAPHICS_SIZE
+    capture = await captureSessionR(challengeSource, {
+      captureGraphics: WEBR_GRAPHICS_SIZE,
+      captureConditions: false
     });
 
     if (capture.images.length === 0) return;
@@ -158,11 +867,157 @@ async function renderTargetPlot(challengeSource) {
     drawImageToCanvas(document.getElementById('canvas-base'), capture.images[0]);
     drawImageToCanvas(document.getElementById('canvas-target'), capture.images[0]);
   } finally {
-    shelter.purge();
+    await destroyCaptureResult(capture);
   }
 }
 
+async function cleanupTargetWorkspace(options) {
+  const keepNames = getDatasetObjectNames(options['dataset-name'] || '');
+  const keepList = keepNames.map(quoteRString).join(', ');
+  const keepVector = keepList ? `c(${keepList})` : 'character()';
+  let capture;
+
+  try {
+    capture = await captureSessionR(`
+.gg_battle_keep <- ${keepVector}
+.gg_battle_remove <- setdiff(ls(all.names = FALSE), .gg_battle_keep)
+if (length(.gg_battle_remove)) {
+  rm(list = .gg_battle_remove, envir = environment())
+}
+rm(list = ls(all.names = TRUE, pattern = "^\\\\.gg_battle_"), envir = environment())
+`, {
+      captureStreams: false,
+      captureGraphics: false,
+      captureConditions: false
+    });
+  } finally {
+    await destroyCaptureResult(capture);
+  }
+}
+
+function getDatasetObjectNames(datasetName) {
+  return datasetName
+    .split(',')
+    .map(name => name.trim())
+    .filter(name => /^[A-Za-z.][A-Za-z0-9._]*$/.test(name));
+}
+
+function quoteRString(value) {
+  return JSON.stringify(value);
+}
+
+async function refreshVariables() {
+  const variablesContainer = document.getElementById('variables-list');
+  if (!variablesContainer || !shelter) return;
+
+  renderVariableMessage('Reading variables...');
+
+  let capture;
+  try {
+    capture = await captureSessionR(getVariableSummaryCode(), {
+      captureStreams: true,
+      captureConditions: false
+    });
+    const output = (capture.output || [])
+      .filter(evt => evt.type === 'stdout')
+      .map(evt => evt.data)
+      .join('\n');
+
+    renderVariables(parseVariableOutput(output));
+  } catch (err) {
+    console.error('Error reading R variables:', err);
+    renderVariableMessage('Unable to read variables.');
+  } finally {
+    await destroyCaptureResult(capture);
+  }
+}
+
+function getVariableSummaryCode() {
+  return `
+.gg_battle_names <- ls(all.names = FALSE)
+
+for (.gg_battle_name in .gg_battle_names) {
+  .gg_battle_value <- get(.gg_battle_name, envir = environment())
+  .gg_battle_class <- paste(class(.gg_battle_value), collapse = "/")
+  .gg_battle_size <- tryCatch({
+    .gg_battle_dim <- dim(.gg_battle_value)
+    if (!is.null(.gg_battle_dim)) {
+      paste(.gg_battle_dim, collapse = " x ")
+    } else {
+      paste0("length ", length(.gg_battle_value))
+    }
+  }, error = function(.gg_battle_err) "unknown")
+
+  cat(.gg_battle_name, .gg_battle_class, .gg_battle_size, sep = "\\t")
+  cat("\\n")
+}
+
+rm(list = ls(all.names = TRUE, pattern = "^\\\\.gg_battle_"), envir = environment())
+`;
+}
+
+function parseVariableOutput(output) {
+  return output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const [name, type, size] = line.split('\t');
+      return { name, type: type || '', size: size || '' };
+    })
+    .filter(variable => variable.name);
+}
+
+function renderVariables(variables) {
+  const variablesContainer = document.getElementById('variables-list');
+  if (!variablesContainer) return;
+
+  if (variables.length === 0) {
+    renderVariableMessage('No variables in the R session yet.');
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'variables-table';
+
+  const header = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['Name', 'Type', 'Size'].forEach(label => {
+    const cell = document.createElement('th');
+    cell.scope = 'col';
+    cell.textContent = label;
+    headerRow.append(cell);
+  });
+  header.append(headerRow);
+
+  const body = document.createElement('tbody');
+  variables.forEach(variable => {
+    const row = document.createElement('tr');
+    [variable.name, variable.type, variable.size].forEach(value => {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(cell);
+    });
+    body.append(row);
+  });
+
+  table.append(header, body);
+  variablesContainer.replaceChildren(table);
+}
+
+function renderVariableMessage(message) {
+  const variablesContainer = document.getElementById('variables-list');
+  if (!variablesContainer) return;
+
+  const messageElement = document.createElement('p');
+  messageElement.className = 'variables-empty';
+  messageElement.textContent = message;
+  variablesContainer.replaceChildren(messageElement);
+}
+
 function setRunButtonReady(runButton) {
+  setTerminalBusy(false);
+
   if (!runButton) return;
 
   runButton.innerHTML = `
@@ -175,6 +1030,8 @@ function setRunButtonReady(runButton) {
 }
 
 function setRunButtonRunning(runButton) {
+  setTerminalBusy(true, 'Running script...');
+
   if (!runButton) return;
 
   runButton.textContent = 'Running...';
@@ -223,25 +1080,21 @@ async function renderUserPlot() {
   const code = getExecutableCode();
 
   try {
-    capture = await shelter.captureR(code, {
+    capture = await captureSessionR(code, {
       withAutoprint: true,
       captureStreams: true,
       captureGraphics: WEBR_GRAPHICS_SIZE,
       captureConditions: false
     });
 
-    const output = capture.output
-      .filter(evt => evt.type === 'stdout' || evt.type === 'stderr')
-      .map(evt => evt.data);
-
-    writeOutput(output.join('\n'));
+    writeOutput(getCaptureOutputText(capture));
 
     if (capture.images.length > 0) {
       drawImageToCanvas(document.getElementById('canvas'), capture.images[0]);
       renderedPlot = true;
     }
   } finally {
-    shelter.purge();
+    await destroyCaptureResult(capture);
 
     if (!renderedPlot) {
       drawDefaultImage(document.getElementById('canvas'));
@@ -252,6 +1105,7 @@ async function renderUserPlot() {
 }
 
 function getExecutableCode() {
+  saveActiveScript();
   const code = editor.getValue();
   return preRunCode ? `${preRunCode}\n${code}` : code;
 }
@@ -263,6 +1117,7 @@ async function runAndCompare() {
   try {
     await renderUserPlot();
     window.compareRenderedPlot?.();
+    await refreshVariables();
   } catch (err) {
     console.error('Error running R code:', err);
     writeOutput(`Error running R code: ${err.message}`);
@@ -290,10 +1145,7 @@ function setText(selector, value) {
 }
 
 function writeOutput(message) {
-  const output = document.getElementById('out');
-  if (output) {
-    output.innerText = message;
-  }
+  appendTerminalText(message);
 }
 
 function getChallengeId() {
