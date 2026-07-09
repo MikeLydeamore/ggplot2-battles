@@ -750,9 +750,14 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.leaderboard-action-cell {
-  text-align: right;
-  width: 1%;
+.leaderboard-date-cell {
+  min-width: 14rem;
+}
+
+.leaderboard-date-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .leaderboard-remove-button {

@@ -118,7 +118,9 @@ async function submitScore(event) {
     submittedLatestScore = true;
     latestSubmissionId = payload.submission?.id || null;
     await loadLeaderboard();
-    setStatus(canRemoveOwnSubmission(payload.submission)
+    setStatus(payload.session_removal_supported === false
+      ? 'Score submitted. Remove will be available after Supabase refreshes its REST schema cache.'
+      : canRemoveOwnSubmission(payload.submission)
       ? 'Score submitted. You can remove it from this tab.'
       : 'Score submitted.');
   } catch (err) {
@@ -141,8 +143,7 @@ function renderLeaderboard(submissions) {
     appendCell(row, index + 1);
     appendCell(row, submission.display_name);
     appendCell(row, `${Number(submission.score).toFixed(2)}%`);
-    appendCell(row, formatDate(submission.submitted_at));
-    appendActionCell(row, submission);
+    appendDateCell(row, submission);
 
     return row;
   });
@@ -153,7 +154,7 @@ function renderLeaderboard(submissions) {
 function renderEmptyTable(message) {
   const row = document.createElement('tr');
   const cell = document.createElement('td');
-  cell.colSpan = 5;
+  cell.colSpan = 4;
   cell.textContent = message;
   row.appendChild(cell);
   tableBody.replaceChildren(row);
@@ -165,9 +166,16 @@ function appendCell(row, value) {
   row.appendChild(cell);
 }
 
-function appendActionCell(row, submission) {
+function appendDateCell(row, submission) {
   const cell = document.createElement('td');
-  cell.className = 'leaderboard-action-cell';
+  cell.className = 'leaderboard-date-cell';
+
+  const dateContent = document.createElement('span');
+  dateContent.className = 'leaderboard-date-content';
+
+  const dateText = document.createElement('span');
+  dateText.textContent = formatDate(submission.submitted_at);
+  dateContent.appendChild(dateText);
 
   const deleteToken = getOwnSubmissionDeleteToken(submission.id);
   if (deleteToken) {
@@ -178,9 +186,10 @@ function appendActionCell(row, submission) {
     button.addEventListener('click', () => {
       deleteOwnSubmission(submission.id, deleteToken, button);
     });
-    cell.appendChild(button);
+    dateContent.appendChild(button);
   }
 
+  cell.appendChild(dateContent);
   row.appendChild(cell);
 }
 

@@ -103,7 +103,8 @@ async function handlePost(req, res) {
     submission: {
       ...publicSubmission(submission),
       ...(supportsSessionRemoval ? { delete_token: deleteToken } : {})
-    }
+    },
+    session_removal_supported: supportsSessionRemoval
   });
 }
 
