@@ -113,7 +113,7 @@ LEADERBOARD_RATE_LIMIT_SALT=change-me
 LEADERBOARD_DELETE_TOKEN_SALT=change-me-too
 ```
 
-If you already have a leaderboard table, run the updated SQL again to add the `delete_token_hash` column.
+If you already have a leaderboard table, run the updated SQL again to add the `delete_token_hash` column. The SQL also reloads Supabase's REST schema cache; without that, score submission may temporarily fail with a missing-column schema cache error.
 
 The API validates names, scores, challenge ids, and code length. It hashes the request IP before storing it for basic per-challenge rate limiting, and the browser renders leaderboard text with `textContent`. New submissions also get a temporary remove token stored in `sessionStorage`, so users can remove entries they submitted in the current browser tab without needing accounts.
 

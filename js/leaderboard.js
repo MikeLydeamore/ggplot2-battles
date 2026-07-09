@@ -118,7 +118,9 @@ async function submitScore(event) {
     submittedLatestScore = true;
     latestSubmissionId = payload.submission?.id || null;
     await loadLeaderboard();
-    setStatus('Score submitted. You can remove it from this tab.');
+    setStatus(canRemoveOwnSubmission(payload.submission)
+      ? 'Score submitted. You can remove it from this tab.'
+      : 'Score submitted.');
   } catch (err) {
     setStatus(err.message);
   } finally {
@@ -239,6 +241,10 @@ function rememberOwnSubmission(submission) {
   const ownSubmissions = getOwnSubmissions();
   ownSubmissions[submission.id] = deleteToken;
   saveOwnSubmissions(ownSubmissions);
+}
+
+function canRemoveOwnSubmission(submission) {
+  return Boolean(submission?.id && (submission.delete_token || submission.deleteToken));
 }
 
 function forgetOwnSubmission(submissionId) {

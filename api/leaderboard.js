@@ -73,27 +73,47 @@ async function handlePost(req, res) {
 
   await enforceRateLimit(challengeId, ipHash);
 
-  const [submission] = await supabaseRequest(TABLE_NAME, {
-    method: 'POST',
-    headers: {
-      Prefer: 'return=representation'
-    },
-    body: JSON.stringify({
-      challenge_id: challengeId,
-      display_name: displayName,
-      score,
-      code,
-      delete_token_hash: hashDeleteToken(deleteToken),
-      ip_hash: ipHash,
-      user_agent: String(req.headers['user-agent'] || '').slice(0, 300)
-    })
-  });
+  const submissionPayload = {
+    challenge_id: challengeId,
+    display_name: displayName,
+    score,
+    code,
+    ip_hash: ipHash,
+    user_agent: String(req.headers['user-agent'] || '').slice(0, 300)
+  };
+  let supportsSessionRemoval = true;
+  let submission;
+
+  try {
+    [submission] = await insertSubmission({
+      ...submissionPayload,
+      delete_token_hash: hashDeleteToken(deleteToken)
+    });
+  } catch (err) {
+    if (!isMissingDeleteTokenColumnError(err)) {
+      throw err;
+    }
+
+    console.warn('Supabase schema cache cannot see delete_token_hash yet; submitting score without session removal.');
+    supportsSessionRemoval = false;
+    [submission] = await insertSubmission(submissionPayload);
+  }
 
   sendJson(res, 201, {
     submission: {
       ...publicSubmission(submission),
-      delete_token: deleteToken
+      ...(supportsSessionRemoval ? { delete_token: deleteToken } : {})
     }
+  });
+}
+
+async function insertSubmission(submissionPayload) {
+  return supabaseRequest(TABLE_NAME, {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation'
+    },
+    body: JSON.stringify(submissionPayload)
   });
 }
 
@@ -108,12 +128,21 @@ async function handleDelete(req, res) {
     `delete_token_hash=eq.${encodeURIComponent(hashDeleteToken(deleteToken))}`
   ].join('&');
 
-  const deletedSubmissions = await supabaseRequest(`${TABLE_NAME}?${query}`, {
-    method: 'DELETE',
-    headers: {
-      Prefer: 'return=representation'
+  let deletedSubmissions;
+  try {
+    deletedSubmissions = await supabaseRequest(`${TABLE_NAME}?${query}`, {
+      method: 'DELETE',
+      headers: {
+        Prefer: 'return=representation'
+      }
+    });
+  } catch (err) {
+    if (isMissingDeleteTokenColumnError(err)) {
+      throw httpError(409, 'Remove is not available until Supabase refreshes the REST schema cache.');
     }
-  });
+
+    throw err;
+  }
 
   if (!deletedSubmissions.length) {
     throw httpError(404, 'Submission not found or cannot be removed from this session.');
@@ -162,7 +191,11 @@ async function supabaseRequest(path, options = {}) {
 
   if (!response.ok) {
     const message = payload?.message || payload?.error || 'Supabase request failed';
-    throw httpError(response.status, message);
+    throw httpError(response.status, message, {
+      supabaseCode: payload?.code,
+      details: payload?.details,
+      hint: payload?.hint
+    });
   }
 
   return payload;
@@ -301,6 +334,13 @@ function hashDeleteToken(deleteToken) {
     .digest('hex');
 }
 
+function isMissingDeleteTokenColumnError(err) {
+  const message = String(err.message || '');
+  return (!err.supabaseCode || err.supabaseCode === 'PGRST204')
+    && message.includes('delete_token_hash')
+    && message.includes('schema cache');
+}
+
 function publicSubmission(submission) {
   return {
     id: submission.id,
@@ -348,8 +388,9 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function httpError(statusCode, message) {
+function httpError(statusCode, message, details = {}) {
   const err = new Error(message);
   err.statusCode = statusCode;
+  Object.assign(err, details);
   return err;
 }

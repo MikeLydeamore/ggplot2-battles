@@ -23,3 +23,7 @@ create index if not exists leaderboard_submissions_challenge_score_idx
 
 create index if not exists leaderboard_submissions_rate_limit_idx
   on public.leaderboard_submissions (challenge_id, ip_hash, submitted_at desc);
+
+-- Supabase/PostgREST can briefly keep an old REST schema cache after DDL.
+-- Reload it so newly-added columns are visible to /rest/v1 requests.
+notify pgrst, 'reload schema';
