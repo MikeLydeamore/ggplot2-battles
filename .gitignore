@@ -4,3 +4,6 @@
 .Ruserdata
 .DS_STORE
 Rplots.pdf
+.env
+.env.*
+!.env.example

@@ -23,8 +23,8 @@
       </div>
     </div>
     <div class="compare-container mx-auto text-center padding" id="sliderContainer">
-      <canvas id="canvas-base" width="700" height="400" style="display: none; margin: auto; width: 700px;"></canvas>
-      <canvas id="canvas" width="700" height="400" , style="margin: auto; width: 700px;"></canvas>
+      <canvas id="canvas-base" width="700" height="400" style="display: none;"></canvas>
+      <canvas id="canvas" width="700" height="400"></canvas>
       <div class="slider" id="slider" style="left: 300px;"></div>
     </div>
 
@@ -34,4 +34,40 @@
     </div>
   </div>
 
+</div>
+
+<div class="leaderboard-wrapper">
+  <div class="inner-box leaderboard-box">
+    <div class="leaderboard-header-row">
+      <h4>Leaderboard</h4>
+      <button class="btn btn-outline-light btn-sm" type="button" id="leaderboard-refresh">Refresh</button>
+    </div>
+
+    <form id="leaderboard-form" class="leaderboard-form">
+      <label for="leaderboard-name" class="visually-hidden">Display name</label>
+      <input class="form-control form-control-sm" id="leaderboard-name" name="displayName" maxlength="32"
+        autocomplete="nickname" placeholder="Display name">
+      <button class="btn btn-info btn-sm" disabled type="submit" id="leaderboard-submit">Submit score</button>
+    </form>
+
+    <div id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite"></div>
+
+    <div class="leaderboard-table-wrapper">
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Name</th>
+            <th scope="col">Score</th>
+            <th scope="col">Date</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr>
+            <td colspan="4">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>

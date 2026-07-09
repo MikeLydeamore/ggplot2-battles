@@ -1,308 +1,219 @@
-// Initialize references when DOM is ready
-let container, canvas, ctx, slider, baseImage, runButton, result;
+let sliderContainer;
+let userCanvas;
+let targetCanvas;
+let sliderHandle;
+let diffToggle;
+let similarityScore;
+let scoreAnimation;
 
-// Function to initialize DOM references
-function initializeDOMReferences() {
-  container = document.getElementById('sliderContainer');
-  canvas = document.getElementById('canvas');
-  ctx = canvas?.getContext('2d');
-  slider = document.getElementById('slider');
-  baseImage = document.getElementById('canvas-base');
-  runButton = document.getElementById('runButton');
-  result = document.getElementById('result');
-}
-
-// Create diff canvas (hidden by default)
 const diffCanvas = document.createElement('canvas');
 diffCanvas.id = 'diff-canvas';
 diffCanvas.width = 700;
 diffCanvas.height = 400;
 diffCanvas.style.cssText = `
-  border: 1px solid #6c757d;
-  margin: auto;
-  width: 700px;
   display: none;
   position: absolute;
   top: 0;
   left: 0;
 `;
 
-// Store diff image data
-let diffImageData = null;
+let comparisonInitialized = false;
 
-// Setup canvas and slider functionality when elements are available
-function setupCanvasAndSlider() {
-  // Initialize DOM references now that elements exist
-  initializeDOMReferences();
+document.addEventListener('editor-ready', setupComparisonView);
+queueMicrotask(setupComparisonView);
 
-  if (!canvas || !ctx || !container || !slider) {
-    console.error("Canvas elements not found during setup");
+function setupComparisonView() {
+  if (comparisonInitialized) return;
+
+  sliderContainer = document.getElementById('sliderContainer');
+  userCanvas = document.getElementById('canvas');
+  targetCanvas = document.getElementById('canvas-base');
+  sliderHandle = document.getElementById('slider');
+  diffToggle = document.getElementById('show-diff');
+  similarityScore = document.getElementById('similarity-score');
+
+  if (!sliderContainer || !userCanvas || !targetCanvas || !sliderHandle) {
+    console.error('Comparison elements were not found.');
     return;
   }
 
-  // Set up canvas
-  if (canvas && ctx) {
-    ctx.fillStyle = 'rgba(44,47,51,1)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '40px sans-serif';
-    //ctx.fillText('No plot', 450, 200);
-  }
+  comparisonInitialized = true;
 
-  // Add diff canvas to the slider container
-  if (container) {
-    container.style.position = 'relative';
-    container.appendChild(diffCanvas);
-  }
+  fillInitialCanvas(userCanvas);
+  setupDiffCanvas();
+  setupSlider();
+  setupDiffToggle();
+}
 
-  // Set up slider functionality
-  if (container && slider) {
-    let isDragging = false;
-    slider.addEventListener('mousedown', () => isDragging = true);
-    window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('mousemove', (e) => {
-      if (!isDragging || !container || !canvas) return;
-      const rect = container.getBoundingClientRect();
-      updateClip(e.clientX - rect.left);
-    });
+function fillInitialCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(44,47,51,1)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
 
-    // Initial clip
-    updateClip(300);
-  }
-
-  // Set up checkbox event handler
-  const checkbox = document.getElementById('show-diff');
-  if (checkbox) {
-    checkbox.disabled = true;
-    checkbox.addEventListener('change', function () {
-      if (this.checked && diffImageData && canvas) {
-        // Show diff canvas
-        canvas.style.display = 'none';
-        diffCanvas.style.display = 'block';
-      } else if (canvas) {
-        // Show original canvas
-        canvas.style.display = 'block';
-        diffCanvas.style.display = 'none';
-      }
-    });
+function setupDiffCanvas() {
+  if (!diffCanvas.parentElement) {
+    sliderContainer.appendChild(diffCanvas);
   }
 }
 
-// Wait for editor-ready event before setting up canvas and slider
-document.addEventListener('editor-ready', () => {
-  setupCanvasAndSlider();
-});
+function setupSlider() {
+  let isDragging = false;
+
+  sliderHandle.addEventListener('pointerdown', event => {
+    isDragging = true;
+    sliderHandle.setPointerCapture(event.pointerId);
+  });
+
+  sliderHandle.addEventListener('pointermove', event => {
+    if (!isDragging) return;
+
+    const rect = sliderContainer.getBoundingClientRect();
+    updateClip(event.clientX - rect.left);
+  });
+
+  sliderHandle.addEventListener('pointerup', event => {
+    isDragging = false;
+    sliderHandle.releasePointerCapture(event.pointerId);
+  });
+
+  updateClip(userCanvas.width / 2);
+}
+
+function setupDiffToggle() {
+  if (!diffToggle) return;
+
+  diffToggle.disabled = true;
+  diffToggle.addEventListener('change', updateDiffVisibility);
+}
 
 function updateClip(x) {
-  if (!canvas || !slider) return;
-  const clampedX = Math.max(0, Math.min(canvas.width, x));
-  canvas.style.clipPath = `inset(0px 0px 0px ${clampedX}px)`;
-  slider.style.left = `${clampedX}px`;
+  if (!userCanvas || !sliderHandle) return;
+
+  const clampedX = Math.max(0, Math.min(userCanvas.width, x));
+  userCanvas.style.clipPath = `inset(0px 0px 0px ${clampedX}px)`;
+  sliderHandle.style.left = `${clampedX}px`;
 }
 
-// Compare button
-function handleRunButtonClick() {
-  // Check if we have the required elements
-  if (!canvas || !baseImage) {
-    console.error("Canvas elements not found");
+function compareRenderedPlot() {
+  if (!userCanvas || !targetCanvas) {
+    console.error('Cannot compare plots because canvases are missing.');
     return;
   }
 
-  // Create offscreen canvases
-  const offCanvas1 = document.createElement('canvas');
-  const offCanvas2 = document.createElement('canvas');
-  const width = canvas.width;
-  const height = canvas.height;
+  resetDiffView();
 
-  offCanvas1.width = offCanvas2.width = width;
-  offCanvas1.height = offCanvas2.height = height;
-
-  const ctx1 = offCanvas1.getContext('2d');
-  ctx1.imageSmoothingEnabled = false;
-  const ctx2 = offCanvas2.getContext('2d');
-  ctx2.imageSmoothingEnabled = false;
+  const target = copyCanvas(targetCanvas);
+  const rendered = copyCanvas(userCanvas);
 
   try {
-    ctx1.drawImage(baseImage, 0, 0, width, height);
-    ctx2.drawImage(canvas, 0, 0, width, height);
+    resemble(target.toDataURL())
+      .compareTo(rendered.toDataURL())
+      .outputSettings({
+        errorColor: {
+          red: 255,
+          green: 255,
+          blue: 0
+        },
+        errorType: 'movement',
+        transparency: 0.3,
+        largeImageThreshold: 2000,
+        useCrossOrigin: false
+      })
+      .onComplete(handleComparisonResult);
   } catch (err) {
-    console.error("drawImage failed:", err);
-    result.textContent = "Error drawing images for comparison.";
+    console.error('Plot comparison failed:', err);
+  }
+}
+
+function copyCanvas(sourceCanvas) {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = sourceCanvas.width;
+  offscreen.height = sourceCanvas.height;
+
+  const ctx = offscreen.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height);
+
+  return offscreen;
+}
+
+function handleComparisonResult(data) {
+  if (data.error) {
+    console.error('Resemble.js error:', data.error);
     return;
   }
 
-  // Add raw pixel comparison for debugging
-  //compareRawPixels(offCanvas1, offCanvas2);
+  const mismatch = parseFloat(data.misMatchPercentage);
+  const score = Number((100 - mismatch).toFixed(2));
+  animateSimilarityScore(score);
+  dispatchScore(score);
 
-  // Compare using Resemble.js with diff output
-  resemble(offCanvas1.toDataURL())
-    .compareTo(offCanvas2.toDataURL())
-    .outputSettings({
-      errorColor: {
-        red: 255,
-        green: 255,
-        blue: 0
-      },
-      errorType: 'movement',
-      transparency: 0.3,
-      largeImageThreshold: 2000,
-      useCrossOrigin: false
-    })
-    .onComplete(function (data) {
-      if (data.error) {
-        result.textContent = "Resemble.js error: " + data.error;
-        return;
-      }
+  if (data.getImageDataUrl) {
+    drawDiffImage(data.getImageDataUrl());
+  }
+}
 
-      const mismatch = parseFloat(data.misMatchPercentage);
-      const similarity = (100 - mismatch).toFixed(2);
-      animateSimilarityScore(similarity);
+function drawDiffImage(dataUrl) {
+  const diffImage = new Image();
+  diffImage.onload = () => {
+    const diffCtx = diffCanvas.getContext('2d');
+    diffCtx.clearRect(0, 0, diffCanvas.width, diffCanvas.height);
+    diffCtx.drawImage(diffImage, 0, 0, diffCanvas.width, diffCanvas.height);
 
-      // Log detailed comparison data for debugging
-      // console.log('Comparison Results:', {
-      //   misMatchPercentage: data.misMatchPercentage,
-      //   analysisTime: data.analysisTime,
-      //   diffBounds: data.diffBounds,
-      //   dimensionDifference: data.dimensionDifference,
-      //   rawMisMatchPercentage: data.rawMisMatchPercentage
-      // });
+    if (diffToggle) {
+      diffToggle.disabled = false;
+    }
+  };
+  diffImage.src = dataUrl;
+}
 
-      // Display the diff image
-      if (data.getImageDataUrl) {
-        const diffImg = new Image();
-        diffImg.onload = function () {
-          const diffCtx = diffCanvas.getContext('2d');
-          diffCtx.clearRect(0, 0, diffCanvas.width, diffCanvas.height);
-          diffCtx.drawImage(diffImg, 0, 0, diffCanvas.width, diffCanvas.height);
+function resetDiffView() {
+  if (diffToggle) {
+    diffToggle.checked = false;
+    diffToggle.disabled = true;
+  }
 
-          // Store diff image data for toggling
-          diffImageData = diffImg;
+  userCanvas.style.display = 'block';
+  diffCanvas.style.display = 'none';
+}
 
-          // Enable the checkbox now that we have diff data
-          const checkbox = document.getElementById('show-diff');
-          if (checkbox) {
-            checkbox.disabled = false;
-            // Find the checkbox container (the div with subheader-pill class)
-            const checkboxContainer = checkbox.closest('.subheader-pill');
-            if (checkboxContainer) {
-              checkboxContainer.style.opacity = '1';
-            }
-          }
-
-          // Add pixel analysis for debugging
-          if (mismatch > 0 && mismatch < 5) { // Only for small differences
-            analyzeDifferences(diffCtx);
-          }
-        };
-        diffImg.src = data.getImageDataUrl();
-      } else {
-        console.log("Diff image not available");
-      }
-    });
+function updateDiffVisibility() {
+  const showDiff = diffToggle.checked;
+  userCanvas.style.display = showDiff ? 'none' : 'block';
+  diffCanvas.style.display = showDiff ? 'block' : 'none';
 }
 
 function animateSimilarityScore(targetValue) {
-  const el = document.getElementById("similarity-score");
-  const duration = 800; // in ms
-  const frameRate = 30; // frames per second
+  if (!similarityScore) return;
+
+  clearInterval(scoreAnimation);
+
+  const duration = 800;
+  const frameRate = 30;
   const totalFrames = Math.round((duration / 1000) * frameRate);
   let currentFrame = 0;
 
-  const initialValue = 0;
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-  const interval = setInterval(() => {
+  scoreAnimation = setInterval(() => {
     currentFrame++;
     const progress = easeOut(currentFrame / totalFrames);
-    const value = (initialValue + (targetValue - initialValue) * progress).toFixed(1);
+    const value = (targetValue * progress).toFixed(1);
 
-    el.textContent = `${value}%`;
+    similarityScore.textContent = `${value}%`;
 
     if (currentFrame >= totalFrames) {
-      clearInterval(interval);
+      similarityScore.textContent = `${targetValue.toFixed(2)}%`;
+      clearInterval(scoreAnimation);
     }
   }, 1000 / frameRate);
 }
 
-// Function to analyze pixel differences for debugging
-function analyzeDifferences(diffCtx) {
-  const imageData = diffCtx.getImageData(0, 0, diffCanvas.width, diffCanvas.height);
-  const data = imageData.data;
-  let diffPixels = 0;
-  let sampleDiffs = [];
-
-  // Sample some different pixels to see what the differences look like
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
-
-    // Check if this pixel shows a difference (yellow highlight from resemble.js)
-    if (r > 200 && g > 200 && b < 50) { // Yellow-ish pixels indicate differences
-      diffPixels++;
-
-      // Collect sample coordinates and pixel info
-      if (sampleDiffs.length < 10) {
-        const pixelIndex = i / 4;
-        const x = pixelIndex % diffCanvas.width;
-        const y = Math.floor(pixelIndex / diffCanvas.width);
-        sampleDiffs.push({ x, y, r, g, b, a });
-      }
-    }
-  }
-
-  console.log('Pixel Analysis:', {
-    totalDiffPixels: diffPixels,
-    sampleDifferences: sampleDiffs,
-    canvasSize: `${diffCanvas.width}x${diffCanvas.height}`,
-    percentageFromPixelCount: ((diffPixels / (diffCanvas.width * diffCanvas.height)) * 100).toFixed(4)
-  });
+function dispatchScore(score) {
+  document.dispatchEvent(new CustomEvent('battle-score-updated', {
+    detail: { score }
+  }));
 }
 
-// Function to compare raw pixel data between two canvases
-function compareRawPixels(canvas1, canvas2) {
-  const ctx1 = canvas1.getContext('2d');
-  const ctx2 = canvas2.getContext('2d');
-
-  const imageData1 = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
-  const imageData2 = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
-
-  const data1 = imageData1.data;
-  const data2 = imageData2.data;
-
-  let differences = [];
-  let totalDiffs = 0;
-
-  // Sample every 100th pixel to avoid overwhelming output
-  for (let i = 0; i < data1.length; i += 400) { // 400 = 4 bytes per pixel * 100 pixels
-    const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2], a1 = data1[i + 3];
-    const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2], a2 = data2[i + 3];
-
-    if (r1 !== r2 || g1 !== g2 || b1 !== b2 || a1 !== a2) {
-      totalDiffs++;
-      if (differences.length < 5) { // Only keep first 5 samples
-        const pixelIndex = i / 4;
-        const x = pixelIndex % canvas1.width;
-        const y = Math.floor(pixelIndex / canvas1.width);
-        differences.push({
-          x, y,
-          image1: { r: r1, g: g1, b: b1, a: a1 },
-          image2: { r: r2, g: g2, b: b2, a: a2 },
-          colorDiff: {
-            r: Math.abs(r1 - r2),
-            g: Math.abs(g1 - g2),
-            b: Math.abs(b1 - b2),
-            a: Math.abs(a1 - a2)
-          }
-        });
-      }
-    }
-  }
-
-  console.log('Raw Pixel Comparison (sampled):', {
-    sampledDifferences: totalDiffs,
-    sampleSize: Math.floor(data1.length / 400),
-    exampleDifferences: differences
-  });
-}
+window.compareRenderedPlot = compareRenderedPlot;

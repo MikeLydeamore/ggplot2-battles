@@ -79,6 +79,7 @@ This will:
 - **R Environment**: [webR](https://docs.r-wasm.org/webr/latest/) for browser-based R
 - **Plotting**: ggplot2 with various extension packages
 - **Comparison**: Canvas-based image similarity scoring
+- **Leaderboard**: Vercel API route backed by Supabase Postgres
 
 ## 🎨 Local Development
 
@@ -93,6 +94,25 @@ python -m http.server 8000
 # Example with Node.js
 npx http-server
 ```
+
+## 🏆 Leaderboard Setup
+
+The leaderboard is intentionally account-free: users enter a display name, then the site stores the display name, score, date, challenge id, and submitted code.
+
+1. Create a Supabase project.
+2. Run `supabase/leaderboard.sql` in the Supabase SQL editor.
+3. Deploy the site to Vercel so `api/leaderboard.js` is available.
+4. Add these Vercel environment variables:
+
+```bash
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+LEADERBOARD_RATE_LIMIT_MAX=5
+LEADERBOARD_RATE_LIMIT_WINDOW_SECONDS=600
+LEADERBOARD_RATE_LIMIT_SALT=change-me
+```
+
+The API validates names, scores, challenge ids, and code length. It hashes the request IP before storing it for basic per-challenge rate limiting, and the browser renders leaderboard text with `textContent`.
 
 ## 📄 License
 

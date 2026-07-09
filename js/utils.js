@@ -1,4 +1,4 @@
-function arrayToUnorderedList(items) {
+function createCodeList(items) {
   const ul = document.createElement('ul');
   items.forEach(item => {
     const li = document.createElement('li');
@@ -10,21 +10,42 @@ function arrayToUnorderedList(items) {
   return ul;
 }
 
-const list_battles_container = document.querySelector('.list-battles');
-if (list_battles_container) {
+window.createCodeList = createCodeList;
+
+function createBattleCard(battle) {
+  const item = document.createElement('div');
+  item.className = 'battle-item';
+
+  const title = document.createElement('h5');
+  title.className = 'battle-title';
+  title.textContent = battle.title;
+
+  const link = document.createElement('a');
+  link.className = 'battle-link';
+  link.href = `challenges/${encodeURIComponent(battle.name)}/`;
+  link.title = battle.title;
+
+  const image = document.createElement('img');
+  image.className = 'battle-thumbnail';
+  image.src = `challenges-images/${encodeURIComponent(battle.image)}`;
+  image.alt = battle.title;
+
+  link.appendChild(image);
+  item.append(title, link);
+
+  return item;
+}
+
+const battleListContainer = document.querySelector('.list-battles');
+if (battleListContainer) {
   fetch('challenges-images/manifest.json')
     .then(resp => resp.json())
     .then(battles => {
-      list_battles_container.innerHTML = battles.map(battle => {
-        return `
-        <div class="battle-item">
-          <h5 class="battle-title">${battle.title}</h5>
-          <a href="challenges/${battle.name}/" class="battle-link" title="${battle.title}">
-            <img src="challenges-images/${battle.image}" alt="${battle.title}" class="battle-thumbnail">
-          </a>
-        </div>
-      `;
-      }).join('');
+      const battleCards = battles.map(createBattleCard);
+      battleListContainer.replaceChildren(...battleCards);
+    })
+    .catch(err => {
+      console.error('Unable to load challenge manifest:', err);
     });
 }
 
@@ -33,11 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (listBattles) {
     listBattles.addEventListener('wheel', (e) => {
-      // Prevent default vertical scroll
       e.preventDefault();
-
-      // Scroll horizontally instead
       listBattles.scrollLeft += e.deltaY;
-    });
+    }, { passive: false });
   }
 });

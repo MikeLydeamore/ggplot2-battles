@@ -107,6 +107,91 @@ body {
   box-shadow: 0 0 8px rgba(13, 202, 240, 0.2);
 }
 
+.leaderboard-wrapper {
+  max-width: 1100px;
+  margin: 0 auto 2rem auto;
+}
+
+.leaderboard-box {
+  padding-bottom: 1rem;
+}
+
+.leaderboard-header-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  background: #23272b;
+  color: #f8f9fa;
+  border-bottom: 4px solid #181a1b;
+}
+
+.inner-box .leaderboard-header-row h4 {
+  margin: 0;
+  background: none;
+  border: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.leaderboard-header-row button {
+  margin-right: 1rem;
+}
+
+.leaderboard-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.leaderboard-form input {
+  background: #181a1b;
+  border-color: #495057;
+  color: #f8f9fa;
+}
+
+.leaderboard-form input:focus {
+  background: #181a1b;
+  border-color: #20c997;
+  color: #f8f9fa;
+  box-shadow: 0 0 0 0.2rem rgba(32, 201, 151, 0.25);
+}
+
+.leaderboard-status {
+  min-height: 1.5rem;
+  padding: 0 1rem 0.5rem 1rem;
+  color: #adb5bd;
+}
+
+.leaderboard-table-wrapper {
+  padding: 0 1rem 1rem 1rem;
+  overflow-x: auto;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #495057;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.leaderboard-table th {
+  color: #20c997;
+  font-weight: 700;
+}
+
+.leaderboard-table td:nth-child(1),
+.leaderboard-table td:nth-child(3) {
+  font-variant-numeric: tabular-nums;
+}
+
 .description {
   background: rgba(13, 202, 240, 0.1);
   border-radius: 0.5rem;
@@ -273,15 +358,6 @@ html {
   }
 }
 
-.list-battles {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  overflow-x: scroll;
-  flex-direction: row;
-  position: relative
-}
-
 .list-battles-wrapper {
   position: relative;
   overflow: hidden;
@@ -293,8 +369,7 @@ html {
   gap: 10px;
   overflow-x: scroll;
   flex-direction: row;
-  padding-bottom: 20px
-  /* Remove position: relative here */
+  padding-bottom: 20px;
 }
 
 .list-battles-wrapper::before,
@@ -335,7 +410,7 @@ html {
   margin-right: 10px;
   background: #23272b;
   padding: 5px 20px 20px 20px;
-  border-radius: 10px
+  border-radius: 8px;
 }
 
 .battle-title {
@@ -382,4 +457,25 @@ html {
 .feature-icon {
   font-size: 1.2rem;
   flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .two-column-layout {
+    flex-direction: column;
+  }
+
+  .left,
+  .right {
+    width: 100%;
+  }
+
+  .compare-container {
+    width: min(100%, 700px);
+    aspect-ratio: 7 / 4;
+    height: auto;
+  }
+
+  .leaderboard-form {
+    grid-template-columns: 1fr;
+  }
 }
