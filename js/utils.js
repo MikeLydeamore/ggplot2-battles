@@ -12,26 +12,48 @@ function createCodeList(items) {
 
 window.createCodeList = createCodeList;
 
+function getManifestValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function createBattleCard(battle) {
-  const item = document.createElement('div');
+  const name = getManifestValue(battle.name);
+  const titleText = getManifestValue(battle.title);
+  const imageName = getManifestValue(battle.image);
+
+  const item = document.createElement('article');
   item.className = 'battle-item';
 
-  const title = document.createElement('h5');
-  title.className = 'battle-title';
-  title.textContent = battle.title;
-
   const link = document.createElement('a');
-  link.className = 'battle-link';
-  link.href = `challenges/${encodeURIComponent(battle.name)}/`;
-  link.title = battle.title;
+  link.className = 'battle-card-link';
+  link.href = `challenges/${encodeURIComponent(name)}/`;
+  link.title = `Start ${titleText}`;
+
+  const imageFrame = document.createElement('div');
+  imageFrame.className = 'battle-thumbnail-frame';
 
   const image = document.createElement('img');
   image.className = 'battle-thumbnail';
-  image.src = `challenges-images/${encodeURIComponent(battle.image)}`;
-  image.alt = battle.title;
+  image.src = `challenges-images/${encodeURIComponent(imageName)}`;
+  image.alt = `${titleText} target plot`;
+  image.loading = 'eager';
+  image.decoding = 'async';
 
-  link.appendChild(image);
-  item.append(title, link);
+  const cardBody = document.createElement('div');
+  cardBody.className = 'battle-card-body';
+
+  const title = document.createElement('h3');
+  title.className = 'battle-title';
+  title.textContent = titleText;
+
+  const action = document.createElement('span');
+  action.className = 'battle-card-action';
+  action.textContent = 'Start battle';
+
+  imageFrame.appendChild(image);
+  cardBody.append(title, action);
+  link.append(imageFrame, cardBody);
+  item.appendChild(link);
 
   return item;
 }
@@ -39,23 +61,33 @@ function createBattleCard(battle) {
 const battleListContainer = document.querySelector('.list-battles');
 if (battleListContainer) {
   fetch('challenges-images/manifest.json')
-    .then(resp => resp.json())
+    .then(resp => {
+      if (!resp.ok) {
+        throw new Error(`Manifest request failed with ${resp.status}`);
+      }
+
+      return resp.json();
+    })
     .then(battles => {
       const battleCards = battles.map(createBattleCard);
       battleListContainer.replaceChildren(...battleCards);
+
+      const battleCount = document.getElementById('battle-count');
+      if (battleCount) {
+        battleCount.textContent = `${battles.length} battles ready`;
+      }
     })
     .catch(err => {
       console.error('Unable to load challenge manifest:', err);
+
+      const status = document.createElement('p');
+      status.className = 'battle-list-status';
+      status.textContent = 'Unable to load battles right now.';
+      battleListContainer.replaceChildren(status);
+
+      const battleCount = document.getElementById('battle-count');
+      if (battleCount) {
+        battleCount.textContent = 'Battles unavailable';
+      }
     });
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const listBattles = document.querySelector('.list-battles');
-
-  if (listBattles) {
-    listBattles.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      listBattles.scrollLeft += e.deltaY;
-    }, { passive: false });
-  }
-});
