@@ -7,6 +7,8 @@ let similarityScore;
 let scoreAnimation;
 let syncedPlotWidth = null;
 
+const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
+
 const diffCanvas = document.createElement('canvas');
 diffCanvas.id = 'diff-canvas';
 diffCanvas.width = 700;
@@ -205,8 +207,9 @@ function handleComparisonResult(data) {
 
   const mismatch = parseFloat(data.misMatchPercentage);
   const score = Number((100 - mismatch).toFixed(2));
+  const bestScore = saveLocalBestScore(score);
   animateSimilarityScore(score);
-  dispatchScore(score);
+  dispatchScore(score, bestScore);
 
   if (data.getImageDataUrl) {
     drawDiffImage(data.getImageDataUrl());
@@ -269,9 +272,50 @@ function animateSimilarityScore(targetValue) {
   }, 1000 / frameRate);
 }
 
-function dispatchScore(score) {
+function saveLocalBestScore(score) {
+  const challengeId = getCurrentChallengeId();
+  if (!challengeId || !Number.isFinite(score)) return null;
+
+  const bestScores = readBestScores();
+  const previousBest = Number(bestScores[challengeId]);
+  if (Number.isFinite(previousBest) && previousBest >= score) {
+    return previousBest;
+  }
+
+  bestScores[challengeId] = score;
+  writeBestScores(bestScores);
+  return score;
+}
+
+function readBestScores() {
+  try {
+    const storedScores = localStorage.getItem(BEST_SCORE_STORAGE_KEY);
+    return storedScores ? JSON.parse(storedScores) : {};
+  } catch (err) {
+    console.warn('Unable to read local best scores:', err);
+    return {};
+  }
+}
+
+function writeBestScores(bestScores) {
+  try {
+    localStorage.setItem(BEST_SCORE_STORAGE_KEY, JSON.stringify(bestScores));
+  } catch (err) {
+    console.warn('Unable to save local best score:', err);
+  }
+}
+
+function getCurrentChallengeId() {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts.length > 1 && parts[parts.length - 1].startsWith('index')) {
+    return parts[parts.length - 2];
+  }
+  return parts[parts.length - 1] || '';
+}
+
+function dispatchScore(score, bestScore) {
   document.dispatchEvent(new CustomEvent('battle-score-updated', {
-    detail: { score }
+    detail: { score, bestScore }
   }));
 }
 

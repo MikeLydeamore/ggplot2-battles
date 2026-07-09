@@ -858,12 +858,31 @@ html {
   min-height: 5rem;
 }
 
+.battle-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .battle-title {
   color: var(--battle-text);
   font-size: 1rem;
   font-weight: 600;
   margin: 0;
   line-height: 1.25;
+}
+
+.battle-best-score {
+  color: var(--battle-cyan);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.battle-best-score.is-empty {
+  color: var(--battle-muted);
+  font-weight: 600;
 }
 
 .battle-card-action {

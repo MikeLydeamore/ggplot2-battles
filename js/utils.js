@@ -12,14 +12,32 @@ function createCodeList(items) {
 
 window.createCodeList = createCodeList;
 
+const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
+
 function getManifestValue(value) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function getLocalBestScores() {
+  try {
+    const storedScores = localStorage.getItem(BEST_SCORE_STORAGE_KEY);
+    return storedScores ? JSON.parse(storedScores) : {};
+  } catch (err) {
+    console.warn('Unable to read local best scores:', err);
+    return {};
+  }
+}
+
+function getLocalBestScore(challengeName) {
+  const score = Number(getLocalBestScores()[challengeName]);
+  return Number.isFinite(score) ? score : null;
 }
 
 function createBattleCard(battle) {
   const name = getManifestValue(battle.name);
   const titleText = getManifestValue(battle.title);
   const imageName = getManifestValue(battle.image);
+  const bestScore = getLocalBestScore(name);
 
   const item = document.createElement('article');
   item.className = 'battle-item';
@@ -42,16 +60,28 @@ function createBattleCard(battle) {
   const cardBody = document.createElement('div');
   cardBody.className = 'battle-card-body';
 
+  const cardCopy = document.createElement('div');
+  cardCopy.className = 'battle-card-copy';
+
   const title = document.createElement('h3');
   title.className = 'battle-title';
   title.textContent = titleText;
+
+  const bestScoreLabel = document.createElement('span');
+  bestScoreLabel.className = bestScore === null
+    ? 'battle-best-score is-empty'
+    : 'battle-best-score';
+  bestScoreLabel.textContent = bestScore === null
+    ? 'No best yet'
+    : `Best ${bestScore.toFixed(2)}%`;
 
   const action = document.createElement('span');
   action.className = 'battle-card-action';
   action.textContent = 'Start battle';
 
   imageFrame.appendChild(image);
-  cardBody.append(title, action);
+  cardCopy.append(title, bestScoreLabel);
+  cardBody.append(cardCopy, action);
   link.append(imageFrame, cardBody);
   item.appendChild(link);
 
