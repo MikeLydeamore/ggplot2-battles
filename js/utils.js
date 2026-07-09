@@ -70,14 +70,17 @@ function formatTagLabel(value) {
 }
 
 function getBattleTags(battle) {
+  const difficulty = getBattleDifficulty(battle);
   return [
     {
       kind: 'difficulty',
-      value: getBattleDifficulty(battle),
-      label: getDifficultyLabel(getBattleDifficulty(battle))
+      group: 'difficulty',
+      value: difficulty,
+      label: getDifficultyLabel(difficulty)
     },
     ...getBattlePlotTypes(battle).map(plotType => ({
       kind: 'plot-type',
+      group: 'plotType',
       value: plotType,
       label: formatTagLabel(plotType)
     }))
@@ -99,7 +102,7 @@ function getLocalBestScore(challengeName) {
   return Number.isFinite(score) ? score : null;
 }
 
-function createBattleCard(battle) {
+function createBattleCard(battle, onTagFilter) {
   const name = getManifestValue(battle.name);
   const titleText = getManifestValue(battle.title);
   const imageName = getManifestValue(battle.image);
@@ -108,10 +111,14 @@ function createBattleCard(battle) {
   const item = document.createElement('article');
   item.className = 'battle-item';
 
+  const card = document.createElement('div');
+  card.className = 'battle-card';
+
   const link = document.createElement('a');
   link.className = 'battle-card-link';
   link.href = `challenges/${encodeURIComponent(name)}/`;
   link.title = `Start ${titleText}`;
+  link.setAttribute('aria-label', `Start ${titleText}`);
 
   const imageFrame = document.createElement('div');
   imageFrame.className = 'battle-thumbnail-frame';
@@ -143,10 +150,20 @@ function createBattleCard(battle) {
 
   const tagList = document.createElement('div');
   tagList.className = 'battle-card-tags';
-  getBattleTags(battle).forEach(({ kind, label }) => {
-    const tag = document.createElement('span');
+  getBattleTags(battle).forEach(({ kind, group, value, label }) => {
+    const tag = document.createElement('button');
+    const isActive = Boolean(activeBattleFilters[group]?.has(value));
     tag.className = `battle-tag is-${kind}`;
+    tag.classList.toggle('is-active', isActive);
+    tag.type = 'button';
+    tag.dataset.filterGroup = group;
+    tag.dataset.filterValue = value;
+    tag.setAttribute('aria-pressed', String(isActive));
+    tag.title = `Filter by ${label}`;
     tag.textContent = label;
+    tag.addEventListener('click', () => {
+      onTagFilter(group, value);
+    });
     tagList.appendChild(tag);
   });
 
@@ -157,8 +174,8 @@ function createBattleCard(battle) {
   imageFrame.appendChild(image);
   cardCopy.append(title, tagList, bestScoreLabel);
   cardBody.append(cardCopy, action);
-  link.append(imageFrame, cardBody);
-  item.appendChild(link);
+  card.append(link, imageFrame, cardBody);
+  item.appendChild(card);
 
   return item;
 }
@@ -258,7 +275,10 @@ function syncFilterControls() {
 
   const clearButton = document.querySelector('.battle-filter-clear');
   if (clearButton) {
-    clearButton.hidden = !hasActiveBattleFilters();
+    const shouldHideClear = !hasActiveBattleFilters();
+    clearButton.classList.toggle('is-hidden', shouldHideClear);
+    clearButton.setAttribute('aria-hidden', String(shouldHideClear));
+    clearButton.disabled = shouldHideClear;
   }
 
   const filterPanel = document.querySelector('.battle-filter-panel');
@@ -300,9 +320,14 @@ function getFilteredBattles(battles) {
 
 function renderBattleCards(battles) {
   const filteredBattles = getFilteredBattles(battles);
+  const onTagFilter = (group, value) => {
+    toggleBattleFilter(group, value);
+    syncFilterControls();
+    renderBattleCards(battles);
+  };
 
   if (filteredBattles.length) {
-    battleListContainer.replaceChildren(...filteredBattles.map(createBattleCard));
+    battleListContainer.replaceChildren(...filteredBattles.map(battle => createBattleCard(battle, onTagFilter)));
   } else {
     const status = document.createElement('p');
     status.className = 'battle-list-status';
