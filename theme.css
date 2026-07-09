@@ -121,6 +121,7 @@ body {
   align-items: center;
   gap: 1rem;
   width: 100%;
+  position: relative;
   background: #23272b;
   color: #f8f9fa;
   border-bottom: 4px solid #181a1b;
@@ -131,11 +132,14 @@ body {
   background: none;
   border: 0;
   flex: 1;
-  text-align: left;
+  text-align: center;
 }
 
 .leaderboard-header-row button {
-  margin-right: 1rem;
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .leaderboard-form {
