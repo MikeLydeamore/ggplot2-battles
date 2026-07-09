@@ -1,4 +1,6 @@
 #| title: "Marginal Distributions"
+#| difficulty: "intermediate"
+#| plot-types: "scatter, marginal histogram"
 #| dataset-name: "mpg"
 #| description: "Introduction to the `ggMarginal` function. You'll need this to add the marginal distributions to the scatterplots. The dataset is pretty straightforward so spend your time understanding how the marginals and smoothing lines work!"
 #| colours: "none"

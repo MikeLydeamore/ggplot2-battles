@@ -1,4 +1,6 @@
 #| title: "Circle with gaps"
+#| difficulty: "hard"
+#| plot-types: "circular bar chart"
 #| dataset-name: "wealth"
 #| colours: "`green`"
 #| description: "A circular barplot displays bars around a circle instead of on a line. Here, there is also a gap at the end of the barplot you will have to create. Also think about how to make a big gap in the middle of the barplot. Inspired from the [R Graph Gallery #297](https://r-graph-gallery.com/297-circular-barplot-with-groups.html)"

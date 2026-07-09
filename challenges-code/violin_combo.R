@@ -1,4 +1,6 @@
 #| title: "Combo Plots"
+#| difficulty: "intermediate"
+#| plot-types: "violin, boxplot"
 #| dataset-name: "spreads"
 #| description: "Trying to plot summaries people understand with more complex plots that show the full distribution. You'll need to combine your geoms and stats to succeed."
 #| colours: "`c('gray30','gray15')`"

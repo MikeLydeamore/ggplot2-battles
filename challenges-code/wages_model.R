@@ -1,4 +1,6 @@
 #| title: "Wages Model"
+#| difficulty: "hard"
+#| plot-types: "line chart, model"
 #| dataset-name: "wages_fct, wages_fe_d"
 #| description: "A linear mixed effects model of wages depending on experience and grade, with random intercepts and slopes for individuals. Visualise the individual wage trajectories along with the fixed effects lines for each grade. The `wages_fct` dataset has the raw data, while `wages_fe_d` has the fixed effects predictions for each grade."
 #| colours: "`scale_colour_discrete_divergingx(palette = 'Zissou 1')`"

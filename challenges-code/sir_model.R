@@ -1,4 +1,6 @@
 #| title: "SIR Model"
+#| difficulty: "hard"
+#| plot-types: "time series, bar chart"
 #| dataset-name: "sir_model_fit"
 #| description: "An example SIR model that has been fit to COVID-19 data from Thailand. You'll need to be careful with dates and times, to make sure you're only plotting histograms on whole days, but an otherwise continuous line. Caution with gaps between bars, and an alpha"
 #| colours: "`c('#E74C3C', '#2C3E50', 'gray40')`"

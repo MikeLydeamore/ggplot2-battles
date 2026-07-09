@@ -62,6 +62,24 @@
         </p>
       </div>
 
+      <details class="battle-filter-panel">
+        <summary class="battle-filter-summary">
+          <span>Filters</span>
+          <span class="battle-filter-summary-status" id="filter-summary-count">All battles</span>
+          <button class="battle-filter-clear" type="button" hidden>Clear filters</button>
+        </summary>
+        <div class="battle-filter-content" aria-label="Battle filters">
+          <div class="battle-filter-group">
+            <span class="battle-filter-label">Difficulty</span>
+            <div class="battle-filter-options" id="difficulty-filters"></div>
+          </div>
+          <div class="battle-filter-group">
+            <span class="battle-filter-label">Plot type</span>
+            <div class="battle-filter-options" id="plot-type-filters"></div>
+          </div>
+        </div>
+      </details>
+
       <div class="list-battles-wrapper">
         <div class="list-battles" aria-live="polite">
           <p class="battle-list-status">Loading battles...</p>

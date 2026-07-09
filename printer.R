@@ -27,28 +27,53 @@ extract_packages <- function(file) {
   sort(unique(packages[nzchar(packages)]))
 }
 
+extract_hashpipe_value <- function(lines, key, default = NA_character_) {
+  pattern <- paste0("^#\\|\\s*", key, "\\s*:\\s*(.*)$")
+  matched <- grep(pattern, lines, value = TRUE)
+  if (length(matched) == 0) {
+    return(default)
+  }
+
+  value <- sub(pattern, "\\1", matched[1])
+  value <- trimws(value)
+  value <- sub("^['\"](.*)['\"]$", "\\1", value)
+  if (nzchar(value)) value else default
+}
+
+extract_hashpipe_values <- function(lines, key, default = character()) {
+  value <- extract_hashpipe_value(lines, key)
+  if (is.na(value) || !nzchar(value)) {
+    return(default)
+  }
+
+  values <- unlist(strsplit(value, "\\s*,\\s*"), use.names = FALSE)
+  values <- trimws(sub("^['\"](.*)['\"]$", "\\1", values))
+  values[nzchar(values)]
+}
+
+extract_difficulty <- function(lines) {
+  difficulty <- tolower(extract_hashpipe_value(lines, "difficulty", "intermediate"))
+  if (difficulty %in% c("easy", "intermediate", "hard")) {
+    difficulty
+  } else {
+    "intermediate"
+  }
+}
+
 battles <- list()
 for (fname in files) {
   name <- sub("\\.R$", "", basename(fname))
+  file_content <- readLines(fname, warn = FALSE)
   packages <- extract_packages(fname)
+  difficulty <- extract_difficulty(file_content)
+  plot_types <- extract_hashpipe_values(file_content, "plot-types")
 
   source(fname)
-  file_content <- readLines(fname)
-    
-  # Extract plot variable from hashpipe comment
-  plot_var_line <- grep("^#\\|\\s*plot-variable\\s*:", file_content, value = TRUE)
 
-  # Extract title from hashpipe comment
-  title_line <- grep("^#\\|\\s*title\\s*:", file_content, value = TRUE)
-  battle_title <- if (length(title_line) > 0) {
-    sub("^#\\|\\s*title\\s*:\\s*[\"']([^\"']+)[\"'].*$", "\\1", title_line[1])
-  } else {
-    name # fallback to filename if no title
-  }
+  battle_title <- extract_hashpipe_value(file_content, "title", name)
+  plot_var <- extract_hashpipe_value(file_content, "plot-variable")
 
-  if (length(plot_var_line) > 0) {
-    # Extract the variable name using regex
-    plot_var <- sub("^#\\|\\s*plot-variable\\s*:\\s*[\"']([^\"']+)[\"'].*$", "\\1", plot_var_line[1])
+  if (!is.na(plot_var)) {
     plot_obj <- get(plot_var)
   } else {
     plot_obj <- last_plot()
@@ -65,6 +90,8 @@ for (fname in files) {
     name = name,
     title = battle_title,
     image = paste0(name, ".png"),
+    difficulty = difficulty,
+    plotTypes = plot_types,
     packages = packages
   )
 }

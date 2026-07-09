@@ -9,6 +9,12 @@
     "image": [
       "australia.png"
     ],
+    "difficulty": [
+      "intermediate"
+    ],
+    "plotTypes": [
+      "map"
+    ],
     "packages": [
       "dplyr",
       "ggplot2",
@@ -26,6 +32,12 @@
     "image": [
       "australian_maths_uptake.png"
     ],
+    "difficulty": [
+      "intermediate"
+    ],
+    "plotTypes": [
+      "bar chart"
+    ],
     "packages": [
       "dplyr",
       "ggplot2",
@@ -42,6 +54,12 @@
     "image": [
       "basic_penguins_2.png"
     ],
+    "difficulty": [
+      "easy"
+    ],
+    "plotTypes": [
+      "histogram"
+    ],
     "packages": [
       "ggplot2",
       "palmerpenguins"
@@ -56,6 +74,12 @@
     ],
     "image": [
       "basic_penguins.png"
+    ],
+    "difficulty": [
+      "easy"
+    ],
+    "plotTypes": [
+      "scatter"
     ],
     "packages": [
       "ggplot2",
@@ -72,6 +96,12 @@
     "image": [
       "circle_plot.png"
     ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "circular bar chart"
+    ],
     "packages": [
       "ggplot2"
     ]
@@ -85,6 +115,14 @@
     ],
     "image": [
       "election.png"
+    ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "map",
+      "beeswarm",
+      "composite"
     ],
     "packages": [
       "dplyr",
@@ -105,6 +143,13 @@
     "image": [
       "forest_plot.png"
     ],
+    "difficulty": [
+      "intermediate"
+    ],
+    "plotTypes": [
+      "forest plot",
+      "interval"
+    ],
     "packages": [
       "ggplot2"
     ]
@@ -118,6 +163,12 @@
     ],
     "image": [
       "gene_plot.png"
+    ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "gene plot"
     ],
     "packages": [
       "dplyr",
@@ -135,6 +186,13 @@
     "image": [
       "ggmarginal.png"
     ],
+    "difficulty": [
+      "intermediate"
+    ],
+    "plotTypes": [
+      "scatter",
+      "marginal histogram"
+    ],
     "packages": [
       "ggExtra",
       "ggplot2"
@@ -149,6 +207,13 @@
     ],
     "image": [
       "pedestrian_uncertainty.png"
+    ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "uncertainty",
+      "time series"
     ],
     "packages": [
       "distributional",
@@ -166,6 +231,13 @@
     "image": [
       "sir_model.png"
     ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "time series",
+      "bar chart"
+    ],
     "packages": [
       "dplyr",
       "ggplot2"
@@ -181,6 +253,13 @@
     "image": [
       "violin_combo.png"
     ],
+    "difficulty": [
+      "intermediate"
+    ],
+    "plotTypes": [
+      "violin",
+      "boxplot"
+    ],
     "packages": [
       "dplyr",
       "ggplot2"
@@ -195,6 +274,13 @@
     ],
     "image": [
       "wages_model.png"
+    ],
+    "difficulty": [
+      "hard"
+    ],
+    "plotTypes": [
+      "line chart",
+      "model"
     ],
     "packages": [
       "brolgar",

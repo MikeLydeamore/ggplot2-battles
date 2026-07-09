@@ -1,4 +1,6 @@
 #| title: "Australian Election Greens Vote Share"
+#| difficulty: "hard"
+#| plot-types: "map, beeswarm, composite"
 #| dataset-name: "election_greens, ozmaps::abs_ced"
 #| description: "Visualising Australian election data is a challenge - Australia is a large country with lots of small regions. In this challenge, you will need two datasets to draw the beeswarm and the map that shows the election percentage of the Australian Greens party."
 #| colours: "`scale_fill_viridis_c()`"

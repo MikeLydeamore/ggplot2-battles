@@ -1,4 +1,6 @@
 #| title: "Forest Plot"
+#| difficulty: "intermediate"
+#| plot-types: "forest plot, interval"
 #| dataset-name: "hazard_ratio"
 #| description: "Log hazard ratios of various treatments for a disease, where negative values are protective."
 #| colours: "`scale_color_viridis_c(end = 0.9)`"

@@ -1,4 +1,6 @@
 #| title: "Gene plot"
+#| difficulty: "hard"
+#| plot-types: "gene plot"
 #| dataset-name: "gene_data"
 #| description: "Plotting genes around the human gene GALNT9 with [gggenes](https://wilkox.org/gggenes/reference/index.html)"
 #| stub: "gene_data |>\n  ggplot() +\n  geom_gene_arrow(\n    arrow_body_height = grid::unit(10, 'mm'),\n    arrowhead_height = grid::unit(15, 'mm')\n  )"

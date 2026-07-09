@@ -794,19 +794,143 @@ html {
   width: 100%;
 }
 
+.battle-filter-panel {
+  position: relative;
+  margin: 0 0 1.25rem 0;
+  background: rgba(13, 202, 240, 0.06);
+  border: 1px solid rgba(13, 202, 240, 0.18);
+  border-radius: 8px;
+}
+
+.battle-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0 1rem;
+  color: var(--battle-cyan);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+
+.battle-filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+.battle-filter-summary::before {
+  content: ">";
+  color: var(--battle-teal);
+  transition: transform 160ms ease;
+}
+
+.battle-filter-panel[open] .battle-filter-summary::before {
+  transform: rotate(90deg);
+}
+
+.battle-filter-summary-status {
+  margin-left: auto;
+  color: var(--battle-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.battle-filter-panel.has-active-filters .battle-filter-summary {
+  padding-right: 8.5rem;
+}
+
+.battle-filter-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem 1rem;
+  padding: 0 1rem 0.9rem 1rem;
+}
+
+.battle-filter-panel:not([open]) .battle-filter-content {
+  display: none;
+}
+
+.battle-filter-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.battle-filter-group + .battle-filter-group {
+  grid-column: 1 / -1;
+}
+
+.battle-filter-label {
+  flex: 0 0 5.8rem;
+  color: var(--battle-cyan);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 2rem;
+}
+
+.battle-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.battle-filter-chip,
+.battle-filter-clear {
+  min-height: 2rem;
+  border: 1px solid var(--battle-border);
+  border-radius: 6px;
+  background: rgba(9, 24, 39, 0.35);
+  color: var(--battle-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+}
+
+.battle-filter-chip:hover,
+.battle-filter-chip:focus-visible,
+.battle-filter-clear:hover,
+.battle-filter-clear:focus-visible {
+  border-color: var(--battle-teal);
+  color: var(--battle-teal);
+}
+
+.battle-filter-chip.is-active {
+  border-color: var(--battle-teal);
+  background: var(--battle-teal);
+  color: var(--battle-navy);
+}
+
+.battle-filter-clear {
+  position: absolute;
+  top: 0.5rem;
+  right: 1rem;
+  color: var(--battle-muted);
+}
+
+.battle-filter-clear[hidden] {
+  display: none;
+}
+
 .list-battles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), min(100%, 22.5rem)));
   gap: 1rem;
+  justify-content: center;
 }
 
 .battle-item {
+  width: 100%;
   min-width: 0;
 }
 
 .battle-card-link {
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   color: var(--battle-text);
@@ -885,6 +1009,36 @@ html {
   font-weight: 600;
 }
 
+.battle-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.battle-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 1.45rem;
+  border: 1px solid rgba(173, 181, 189, 0.2);
+  border-radius: 4px;
+  color: var(--battle-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.22rem 0.4rem;
+}
+
+.battle-tag.is-difficulty {
+  border-color: rgba(32, 201, 151, 0.3);
+  color: var(--battle-teal);
+}
+
+.battle-tag.is-plot-type {
+  border-color: rgba(13, 202, 240, 0.25);
+  color: var(--battle-cyan);
+}
+
 .battle-card-action {
   flex: 0 0 auto;
   color: var(--battle-teal);
@@ -894,6 +1048,7 @@ html {
 
 .battle-list-status {
   grid-column: 1 / -1;
+  width: 100%;
   margin: 0;
   padding: 1.25rem;
   color: var(--battle-muted);
@@ -1217,6 +1372,15 @@ html {
     flex-direction: column;
   }
 
+  .battle-filter-content {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-filter-group,
+  .battle-filter-group + .battle-filter-group {
+    grid-column: 1 / -1;
+  }
+
   .home-info-grid {
     grid-template-columns: 1fr;
   }
@@ -1259,6 +1423,16 @@ html {
 
   .home-lede {
     font-size: 1rem;
+  }
+
+  .battle-filter-group {
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .battle-filter-label {
+    flex-basis: auto;
+    line-height: 1.2;
   }
 
   .battle-card-body {

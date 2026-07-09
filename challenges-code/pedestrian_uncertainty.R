@@ -1,4 +1,6 @@
 #| title: "Uncertainty over time"
+#| difficulty: "hard"
+#| plot-types: "uncertainty, time series"
 #| dataset-name: "pedestrians"
 #| description: "Visualising uncertainty in pedestrian counts over a 24-hour period using gradient intervals from the `distributional` package. The dataset contains pedestrian counts and their standard errors for each hour of the day."
 #| colours: "`#20794D`"

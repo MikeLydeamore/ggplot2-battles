@@ -16,6 +16,16 @@ window.createCodeList = createCodeList;
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
 const PACKAGE_WARMER_SESSION_KEY = 'ggplot-battles-package-warmer-v1';
 const WEBR_MODULE_URL = 'https://webr.r-wasm.org/latest/webr.mjs';
+const DIFFICULTIES = ['easy', 'intermediate', 'hard'];
+const DIFFICULTY_LABELS = {
+  easy: 'Easy',
+  intermediate: 'Intermediate',
+  hard: 'Hard'
+};
+const activeBattleFilters = {
+  difficulty: new Set(),
+  plotType: new Set()
+};
 
 function getManifestValue(value) {
   return Array.isArray(value) ? value[0] : value;
@@ -26,6 +36,52 @@ function getManifestValues(value) {
     return value.filter(item => typeof item === 'string' && item.length > 0);
   }
   return typeof value === 'string' && value.length > 0 ? [value] : [];
+}
+
+function normaliseTagValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function getBattleDifficulty(battle) {
+  const difficulty = normaliseTagValue(getManifestValue(battle.difficulty));
+  return DIFFICULTIES.includes(difficulty) ? difficulty : 'intermediate';
+}
+
+function getBattlePlotTypes(battle) {
+  return uniqueValues(
+    getManifestValues(battle.plotTypes || battle.plot_types || battle['plot-types'])
+      .map(normaliseTagValue)
+  );
+}
+
+function getDifficultyLabel(difficulty) {
+  return DIFFICULTY_LABELS[difficulty] || formatTagLabel(difficulty);
+}
+
+function formatTagLabel(value) {
+  return String(value)
+    .split(' ')
+    .map(word => word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word)
+    .join(' ');
+}
+
+function getBattleTags(battle) {
+  return [
+    {
+      kind: 'difficulty',
+      value: getBattleDifficulty(battle),
+      label: getDifficultyLabel(getBattleDifficulty(battle))
+    },
+    ...getBattlePlotTypes(battle).map(plotType => ({
+      kind: 'plot-type',
+      value: plotType,
+      label: formatTagLabel(plotType)
+    }))
+  ];
 }
 
 function getLocalBestScores() {
@@ -85,17 +141,185 @@ function createBattleCard(battle) {
     ? 'No best yet'
     : `Best ${bestScore.toFixed(2)}%`;
 
+  const tagList = document.createElement('div');
+  tagList.className = 'battle-card-tags';
+  getBattleTags(battle).forEach(({ kind, label }) => {
+    const tag = document.createElement('span');
+    tag.className = `battle-tag is-${kind}`;
+    tag.textContent = label;
+    tagList.appendChild(tag);
+  });
+
   const action = document.createElement('span');
   action.className = 'battle-card-action';
   action.textContent = 'Start battle';
 
   imageFrame.appendChild(image);
-  cardCopy.append(title, bestScoreLabel);
+  cardCopy.append(title, tagList, bestScoreLabel);
   cardBody.append(cardCopy, action);
   link.append(imageFrame, cardBody);
   item.appendChild(link);
 
   return item;
+}
+
+function getAvailableDifficulties(battles) {
+  return DIFFICULTIES.filter(difficulty => (
+    battles.some(battle => getBattleDifficulty(battle) === difficulty)
+  ));
+}
+
+function getAvailablePlotTypes(battles) {
+  const plotTypes = new Set();
+  battles.forEach(battle => {
+    getBattlePlotTypes(battle).forEach(plotType => plotTypes.add(plotType));
+  });
+
+  return Array.from(plotTypes)
+    .sort((a, b) => formatTagLabel(a).localeCompare(formatTagLabel(b)));
+}
+
+function createFilterButton(group, value, label, onFiltersChanged) {
+  const button = document.createElement('button');
+  button.className = 'battle-filter-chip';
+  button.type = 'button';
+  button.dataset.filterGroup = group;
+  button.dataset.filterValue = value;
+  button.setAttribute('aria-pressed', 'false');
+  button.textContent = label;
+  button.addEventListener('click', () => {
+    toggleBattleFilter(group, value);
+    syncFilterControls();
+    onFiltersChanged();
+  });
+  return button;
+}
+
+function renderFilterControls(battles, onFiltersChanged) {
+  const difficultyContainer = document.getElementById('difficulty-filters');
+  const plotTypeContainer = document.getElementById('plot-type-filters');
+  if (!difficultyContainer || !plotTypeContainer) return;
+
+  const difficultyButtons = getAvailableDifficulties(battles).map(difficulty => (
+    createFilterButton('difficulty', difficulty, getDifficultyLabel(difficulty), onFiltersChanged)
+  ));
+  const plotTypeButtons = getAvailablePlotTypes(battles).map(plotType => (
+    createFilterButton('plotType', plotType, formatTagLabel(plotType), onFiltersChanged)
+  ));
+
+  difficultyContainer.replaceChildren(...difficultyButtons);
+  plotTypeContainer.replaceChildren(...plotTypeButtons);
+
+  const clearButton = document.querySelector('.battle-filter-clear');
+  if (clearButton) {
+    clearButton.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearBattleFilters();
+      syncFilterControls();
+      onFiltersChanged();
+    };
+  }
+
+  syncFilterControls();
+}
+
+function toggleBattleFilter(group, value) {
+  const filters = activeBattleFilters[group];
+  if (!filters) return;
+
+  if (filters.has(value)) {
+    filters.delete(value);
+  } else {
+    filters.add(value);
+  }
+}
+
+function clearBattleFilters() {
+  Object.values(activeBattleFilters).forEach(filters => filters.clear());
+}
+
+function hasActiveBattleFilters() {
+  return Object.values(activeBattleFilters).some(filters => filters.size > 0);
+}
+
+function getActiveBattleFilterCount() {
+  return Object.values(activeBattleFilters)
+    .reduce((total, filters) => total + filters.size, 0);
+}
+
+function syncFilterControls() {
+  document.querySelectorAll('.battle-filter-chip').forEach(button => {
+    const filters = activeBattleFilters[button.dataset.filterGroup];
+    const isActive = Boolean(filters?.has(button.dataset.filterValue));
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  const clearButton = document.querySelector('.battle-filter-clear');
+  if (clearButton) {
+    clearButton.hidden = !hasActiveBattleFilters();
+  }
+
+  const filterPanel = document.querySelector('.battle-filter-panel');
+  if (filterPanel) {
+    filterPanel.classList.toggle('has-active-filters', hasActiveBattleFilters());
+  }
+
+  syncFilterSummary();
+}
+
+function syncFilterSummary() {
+  const summaryStatus = document.getElementById('filter-summary-count');
+  if (!summaryStatus) return;
+
+  const activeFilterCount = getActiveBattleFilterCount();
+  summaryStatus.textContent = activeFilterCount
+    ? `${activeFilterCount} active`
+    : 'All battles';
+}
+
+function getFilteredBattles(battles) {
+  return battles.filter(battle => {
+    const difficultyFilters = activeBattleFilters.difficulty;
+    if (difficultyFilters.size && !difficultyFilters.has(getBattleDifficulty(battle))) {
+      return false;
+    }
+
+    const plotTypeFilters = activeBattleFilters.plotType;
+    if (plotTypeFilters.size) {
+      const plotTypes = getBattlePlotTypes(battle);
+      if (!plotTypes.some(plotType => plotTypeFilters.has(plotType))) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function renderBattleCards(battles) {
+  const filteredBattles = getFilteredBattles(battles);
+
+  if (filteredBattles.length) {
+    battleListContainer.replaceChildren(...filteredBattles.map(createBattleCard));
+  } else {
+    const status = document.createElement('p');
+    status.className = 'battle-list-status';
+    status.textContent = 'No battles match those filters.';
+    battleListContainer.replaceChildren(status);
+  }
+
+  updateBattleCount(battles.length, filteredBattles.length);
+}
+
+function updateBattleCount(totalBattles, visibleBattles = totalBattles) {
+  const battleCount = document.getElementById('battle-count');
+  if (!battleCount) return;
+
+  battleCount.textContent = hasActiveBattleFilters()
+    ? `${visibleBattles} of ${totalBattles} battles shown`
+    : `${totalBattles} battles ready`;
 }
 
 const battleListContainer = document.querySelector('.list-battles');
@@ -109,14 +333,8 @@ if (battleListContainer) {
       return resp.json();
     })
     .then(battles => {
-      const battleCards = battles.map(createBattleCard);
-      battleListContainer.replaceChildren(...battleCards);
-
-      const battleCount = document.getElementById('battle-count');
-      if (battleCount) {
-        battleCount.textContent = `${battles.length} battles ready`;
-      }
-
+      renderFilterControls(battles, () => renderBattleCards(battles));
+      renderBattleCards(battles);
       schedulePackageWarmup(battles);
     })
     .catch(err => {

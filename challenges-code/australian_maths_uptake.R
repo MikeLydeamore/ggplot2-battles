@@ -1,4 +1,6 @@
 #| title: "Australian Mathematics Uptake"
+#| difficulty: "intermediate"
+#| plot-types: "bar chart"
 #| dataset-name: "math_participation"
 #| colours: "`c('darkorange','purple')`"
 #| description: "This dataset shows the participation rates in higher and intermediate mathematics in Australia from 2010 to 2023. Data is from the Australian Mathematical Sciences Institute (AMSI) [Year 12 Mathematics Report Card](https://amsi.org.au/wp-content/uploads/2025/07/year-12-participation-2025-july.pdf). There is a lot of subtlety to this plot you'll need to reproduce. Particular attention to text size and axis limits will be crucial."
