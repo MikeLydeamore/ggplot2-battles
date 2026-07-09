@@ -16,6 +16,8 @@ window.createCodeList = createCodeList;
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
 const PACKAGE_WARMER_SESSION_KEY = 'ggplot-battles-package-warmer-v1';
 const WEBR_MODULE_URL = 'https://webr.r-wasm.org/latest/webr.mjs';
+const HERO_PLOT_ROTATION_INTERVAL_MS = 5500;
+const HERO_PLOT_TRANSITION_MS = 180;
 const DIFFICULTIES = ['easy', 'intermediate', 'hard'];
 const DIFFICULTY_LABELS = {
   easy: 'Easy',
@@ -347,6 +349,109 @@ function updateBattleCount(totalBattles, visibleBattles = totalBattles) {
     : `${totalBattles} battles ready`;
 }
 
+function createHeroPlotSlides(battles) {
+  return battles
+    .map(battle => {
+      const title = getManifestValue(battle.title);
+      const imageName = getManifestValue(battle.image);
+      if (!title || !imageName) return null;
+
+      return {
+        title,
+        imageName,
+        imagePath: `challenges-images/${encodeURIComponent(imageName)}`
+      };
+    })
+    .filter(Boolean);
+}
+
+function getCurrentHeroSlideIndex(slides, image) {
+  const currentImageName = decodeURIComponent((image.getAttribute('src') || '').split('/').pop() || '');
+  const currentIndex = slides.findIndex(slide => slide.imageName === currentImageName);
+  return currentIndex >= 0 ? currentIndex : 0;
+}
+
+function preloadHeroSlide(slide) {
+  if (!slide) return;
+
+  const image = new Image();
+  image.src = slide.imagePath;
+}
+
+function showHeroPlotSlide(figure, image, title, slide, shouldAnimate = true) {
+  const updateSlide = () => {
+    image.src = slide.imagePath;
+    image.alt = `${slide.title} target plot`;
+    title.textContent = slide.title;
+  };
+
+  if (!shouldAnimate) {
+    updateSlide();
+    return;
+  }
+
+  figure.classList.add('is-changing');
+  window.setTimeout(() => {
+    updateSlide();
+    window.setTimeout(() => {
+      figure.classList.remove('is-changing');
+    }, HERO_PLOT_TRANSITION_MS);
+  }, HERO_PLOT_TRANSITION_MS);
+}
+
+function initHeroPlotRotation(battles) {
+  const figure = document.querySelector('.home-featured-plot');
+  const image = figure?.querySelector('img');
+  const title = figure?.querySelector('figcaption strong');
+  if (!figure || !image || !title) return;
+
+  const slides = createHeroPlotSlides(battles);
+  if (!slides.length) return;
+
+  let currentIndex = getCurrentHeroSlideIndex(slides, image);
+  let timerId = null;
+  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  showHeroPlotSlide(figure, image, title, slides[currentIndex], false);
+  preloadHeroSlide(slides[(currentIndex + 1) % slides.length]);
+
+  if (slides.length < 2) return;
+
+  const showNextSlide = () => {
+    currentIndex = (currentIndex + 1) % slides.length;
+    showHeroPlotSlide(figure, image, title, slides[currentIndex]);
+    preloadHeroSlide(slides[(currentIndex + 1) % slides.length]);
+  };
+
+  const stopRotation = () => {
+    if (!timerId) return;
+    window.clearInterval(timerId);
+    timerId = null;
+  };
+
+  const startRotation = () => {
+    if (timerId || motionPreference.matches) return;
+    timerId = window.setInterval(showNextSlide, HERO_PLOT_ROTATION_INTERVAL_MS);
+  };
+
+  figure.addEventListener('mouseenter', stopRotation);
+  figure.addEventListener('mouseleave', startRotation);
+  figure.addEventListener('focusin', stopRotation);
+  figure.addEventListener('focusout', startRotation);
+
+  if (typeof motionPreference.addEventListener === 'function') {
+    motionPreference.addEventListener('change', event => {
+      if (event.matches) {
+        stopRotation();
+      } else {
+        startRotation();
+      }
+    });
+  }
+
+  startRotation();
+}
+
 const battleListContainer = document.querySelector('.list-battles');
 if (battleListContainer) {
   fetch('challenges-images/manifest.json')
@@ -358,6 +463,7 @@ if (battleListContainer) {
       return resp.json();
     })
     .then(battles => {
+      initHeroPlotRotation(battles);
       renderFilterControls(battles, () => renderBattleCards(battles));
       renderBattleCards(battles);
       schedulePackageWarmup(battles);

@@ -1372,6 +1372,7 @@ html {
   aspect-ratio: 1947 / 1113;
   object-fit: contain;
   background: #ffffff;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .home-featured-plot figcaption {
@@ -1386,6 +1387,23 @@ html {
 .home-featured-plot strong {
   color: var(--battle-text);
   font-weight: 700;
+  transition: opacity 180ms ease;
+}
+
+.home-featured-plot.is-changing img {
+  opacity: 0.22;
+  transform: scale(0.992);
+}
+
+.home-featured-plot.is-changing strong {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-featured-plot img,
+  .home-featured-plot strong {
+    transition: none;
+  }
 }
 
 .home-battle-section,
