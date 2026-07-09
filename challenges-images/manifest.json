@@ -1,67 +1,207 @@
 [
   {
-    "name": ["australia"],
-    "title": ["Mapping Australia"],
-    "image": ["australia.png"]
+    "name": [
+      "australia"
+    ],
+    "title": [
+      "Mapping Australia"
+    ],
+    "image": [
+      "australia.png"
+    ],
+    "packages": [
+      "dplyr",
+      "ggplot2",
+      "ozmaps",
+      "sf"
+    ]
   },
   {
-    "name": ["australian_maths_uptake"],
-    "title": ["Australian Mathematics Uptake"],
-    "image": ["australian_maths_uptake.png"]
+    "name": [
+      "australian_maths_uptake"
+    ],
+    "title": [
+      "Australian Mathematics Uptake"
+    ],
+    "image": [
+      "australian_maths_uptake.png"
+    ],
+    "packages": [
+      "dplyr",
+      "ggplot2",
+      "tidyr"
+    ]
   },
   {
-    "name": ["basic_penguins_2"],
-    "title": ["Penguin Distributions"],
-    "image": ["basic_penguins_2.png"]
+    "name": [
+      "basic_penguins_2"
+    ],
+    "title": [
+      "Penguin Distributions"
+    ],
+    "image": [
+      "basic_penguins_2.png"
+    ],
+    "packages": [
+      "ggplot2",
+      "palmerpenguins"
+    ]
   },
   {
-    "name": ["basic_penguins"],
-    "title": ["Penguin Scatters"],
-    "image": ["basic_penguins.png"]
+    "name": [
+      "basic_penguins"
+    ],
+    "title": [
+      "Penguin Scatters"
+    ],
+    "image": [
+      "basic_penguins.png"
+    ],
+    "packages": [
+      "ggplot2",
+      "palmerpenguins"
+    ]
   },
   {
-    "name": ["circle_plot"],
-    "title": ["Circle with gaps"],
-    "image": ["circle_plot.png"]
+    "name": [
+      "circle_plot"
+    ],
+    "title": [
+      "Circle with gaps"
+    ],
+    "image": [
+      "circle_plot.png"
+    ],
+    "packages": [
+      "ggplot2"
+    ]
   },
   {
-    "name": ["election"],
-    "title": ["Australian Election Greens Vote Share"],
-    "image": ["election.png"]
+    "name": [
+      "election"
+    ],
+    "title": [
+      "Australian Election Greens Vote Share"
+    ],
+    "image": [
+      "election.png"
+    ],
+    "packages": [
+      "dplyr",
+      "forcats",
+      "ggbeeswarm",
+      "ggplot2",
+      "ozmaps",
+      "patchwork"
+    ]
   },
   {
-    "name": ["forest_plot"],
-    "title": ["Forest Plot"],
-    "image": ["forest_plot.png"]
+    "name": [
+      "forest_plot"
+    ],
+    "title": [
+      "Forest Plot"
+    ],
+    "image": [
+      "forest_plot.png"
+    ],
+    "packages": [
+      "ggplot2"
+    ]
   },
   {
-    "name": ["gene_plot"],
-    "title": ["Gene plot"],
-    "image": ["gene_plot.png"]
+    "name": [
+      "gene_plot"
+    ],
+    "title": [
+      "Gene plot"
+    ],
+    "image": [
+      "gene_plot.png"
+    ],
+    "packages": [
+      "dplyr",
+      "gggenes",
+      "ggplot2"
+    ]
   },
   {
-    "name": ["ggmarginal"],
-    "title": ["Marginal Distributions"],
-    "image": ["ggmarginal.png"]
+    "name": [
+      "ggmarginal"
+    ],
+    "title": [
+      "Marginal Distributions"
+    ],
+    "image": [
+      "ggmarginal.png"
+    ],
+    "packages": [
+      "ggExtra",
+      "ggplot2"
+    ]
   },
   {
-    "name": ["pedestrian_uncertainty"],
-    "title": ["Uncertainty over time"],
-    "image": ["pedestrian_uncertainty.png"]
+    "name": [
+      "pedestrian_uncertainty"
+    ],
+    "title": [
+      "Uncertainty over time"
+    ],
+    "image": [
+      "pedestrian_uncertainty.png"
+    ],
+    "packages": [
+      "distributional",
+      "ggdist",
+      "ggplot2"
+    ]
   },
   {
-    "name": ["sir_model"],
-    "title": ["SIR Model"],
-    "image": ["sir_model.png"]
+    "name": [
+      "sir_model"
+    ],
+    "title": [
+      "SIR Model"
+    ],
+    "image": [
+      "sir_model.png"
+    ],
+    "packages": [
+      "dplyr",
+      "ggplot2"
+    ]
   },
   {
-    "name": ["violin_combo"],
-    "title": ["Combo Plots"],
-    "image": ["violin_combo.png"]
+    "name": [
+      "violin_combo"
+    ],
+    "title": [
+      "Combo Plots"
+    ],
+    "image": [
+      "violin_combo.png"
+    ],
+    "packages": [
+      "dplyr",
+      "ggplot2"
+    ]
   },
   {
-    "name": ["wages_model"],
-    "title": ["Wages Model"],
-    "image": ["wages_model.png"]
+    "name": [
+      "wages_model"
+    ],
+    "title": [
+      "Wages Model"
+    ],
+    "image": [
+      "wages_model.png"
+    ],
+    "packages": [
+      "brolgar",
+      "colorspace",
+      "dplyr",
+      "ggplot2",
+      "lme4"
+    ]
   }
 ]

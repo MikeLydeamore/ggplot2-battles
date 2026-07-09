@@ -1,3 +1,4 @@
+(function () {
 function createCodeList(items) {
   const ul = document.createElement('ul');
   items.forEach(item => {
@@ -13,9 +14,18 @@ function createCodeList(items) {
 window.createCodeList = createCodeList;
 
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
+const PACKAGE_WARMER_SESSION_KEY = 'ggplot-battles-package-warmer-v1';
+const WEBR_MODULE_URL = 'https://webr.r-wasm.org/latest/webr.mjs';
 
 function getManifestValue(value) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function getManifestValues(value) {
+  if (Array.isArray(value)) {
+    return value.filter(item => typeof item === 'string' && item.length > 0);
+  }
+  return typeof value === 'string' && value.length > 0 ? [value] : [];
 }
 
 function getLocalBestScores() {
@@ -106,6 +116,8 @@ if (battleListContainer) {
       if (battleCount) {
         battleCount.textContent = `${battles.length} battles ready`;
       }
+
+      schedulePackageWarmup(battles);
     })
     .catch(err => {
       console.error('Unable to load challenge manifest:', err);
@@ -121,3 +133,75 @@ if (battleListContainer) {
       }
     });
 }
+
+function schedulePackageWarmup(battles) {
+  const packages = getWarmablePackages(battles);
+  if (!packages.length || !shouldWarmPackages(packages)) return;
+
+  const warm = () => {
+    warmWebRPackageCache(packages);
+  };
+
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(warm, { timeout: 5000 });
+  } else {
+    window.setTimeout(warm, 3000);
+  }
+}
+
+function getWarmablePackages(battles) {
+  const counts = new Map();
+
+  battles.forEach(battle => {
+    getManifestValues(battle.packages).forEach(packageName => {
+      counts.set(packageName, (counts.get(packageName) || 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([packageName]) => packageName);
+}
+
+function shouldWarmPackages(packages) {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection?.saveData) return false;
+  if (connection?.effectiveType && ['slow-2g', '2g'].includes(connection.effectiveType)) return false;
+
+  const signature = packages.join('|');
+  try {
+    return sessionStorage.getItem(PACKAGE_WARMER_SESSION_KEY) !== signature;
+  } catch (err) {
+    console.info('Unable to remember package warmup state:', err);
+  }
+
+  return true;
+}
+
+async function warmWebRPackageCache(packages) {
+  let warmWebR;
+  try {
+    console.info('Warming webR package cache:', packages.join(', '));
+    const { WebR } = await import(WEBR_MODULE_URL);
+    warmWebR = new WebR();
+    await warmWebR.init();
+    await warmWebR.installPackages(packages);
+    rememberWarmedPackages(packages);
+    console.info('webR package cache warmed.');
+  } catch (err) {
+    console.warn('Unable to warm webR package cache:', err);
+  } finally {
+    if (warmWebR && typeof warmWebR.close === 'function') {
+      warmWebR.close();
+    }
+  }
+}
+
+function rememberWarmedPackages(packages) {
+  try {
+    sessionStorage.setItem(PACKAGE_WARMER_SESSION_KEY, packages.join('|'));
+  } catch (err) {
+    console.info('Unable to remember package warmup state:', err);
+  }
+}
+})();

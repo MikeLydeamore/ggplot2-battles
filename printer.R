@@ -4,9 +4,33 @@ files <- list.files(
   full.names = TRUE
 )
 
+extract_packages <- function(file) {
+  lines <- readLines(file, warn = FALSE)
+  lines <- sub("#.*$", "", lines)
+
+  pattern <- paste0(
+    "^\\s*(?:library|require|requireNamespace)\\s*\\(",
+    "\\s*(?:package\\s*=\\s*)?",
+    "[\"']?([A-Za-z][A-Za-z0-9._]*)[\"']?"
+  )
+  matches <- regexec(pattern, lines, perl = TRUE)
+  captured <- regmatches(lines, matches)
+
+  packages <- unlist(lapply(captured, function(match) {
+    if (length(match) >= 2) {
+      match[[2]]
+    } else {
+      character()
+    }
+  }), use.names = FALSE)
+
+  sort(unique(packages[nzchar(packages)]))
+}
+
 battles <- list()
 for (fname in files) {
   name <- sub("\\.R$", "", basename(fname))
+  packages <- extract_packages(fname)
 
   source(fname)
   file_content <- readLines(fname)
@@ -40,7 +64,8 @@ for (fname in files) {
   battles[[length(battles) + 1]] <- list(
     name = name,
     title = battle_title,
-    image = paste0(name, ".png")
+    image = paste0(name, ".png"),
+    packages = packages
   )
 }
 
