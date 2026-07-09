@@ -10,7 +10,7 @@
   <meta name="generator" content="quarto-1.6.39">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/x-icon" href="../../favicon.ico">
 </head>
 
@@ -26,11 +26,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
   <script src="../../js/description.js"></script>
 
-  <div class="container-fluid">
-    <div class="mx-auto text-center pt-4 full-width-pill" style="background: #091827;">
-      <a href="../../"><img src="../../logo.png"></a>
+  <header class="home-header battle-page-header">
+    <div class="home-header-inner">
+      <a class="home-logo-link" href="../../" aria-label="ggplot battles home">
+        <img class="home-logo" src="../../logo.png" alt="ggplot battles">
+      </a>
+      <nav class="home-nav" aria-label="Battle page">
+        <a href="../../#battle-list">Battles</a>
+        <a href="https://github.com/MikeLydeamore/ggplot2-battles" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
     </div>
+  </header>
 
+  <div class="container-fluid">
     <editor-viewer></editor-viewer>
 
     <!-- Include resemble.js -->
