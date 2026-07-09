@@ -18,6 +18,7 @@ const PACKAGE_WARMER_SESSION_KEY = 'ggplot-battles-package-warmer-v1';
 const WEBR_MODULE_URL = 'https://webr.r-wasm.org/latest/webr.mjs';
 const HERO_PLOT_ROTATION_INTERVAL_MS = 5500;
 const HERO_PLOT_TRANSITION_MS = 180;
+const NO_BEST_FILTER_VALUE = 'no-best-yet';
 const DIFFICULTIES = ['easy', 'intermediate', 'hard'];
 const DIFFICULTY_LABELS = {
   easy: 'Easy',
@@ -26,7 +27,8 @@ const DIFFICULTY_LABELS = {
 };
 const activeBattleFilters = {
   difficulty: new Set(),
-  plotType: new Set()
+  plotType: new Set(),
+  progress: new Set()
 };
 
 function getManifestValue(value) {
@@ -102,6 +104,10 @@ function getLocalBestScores() {
 function getLocalBestScore(challengeName) {
   const score = Number(getLocalBestScores()[challengeName]);
   return Number.isFinite(score) ? score : null;
+}
+
+function battleHasLocalBestScore(battle) {
+  return getLocalBestScore(getManifestValue(battle.name)) !== null;
 }
 
 function createBattleCard(battle, onTagFilter) {
@@ -217,7 +223,8 @@ function createFilterButton(group, value, label, onFiltersChanged) {
 function renderFilterControls(battles, onFiltersChanged) {
   const difficultyContainer = document.getElementById('difficulty-filters');
   const plotTypeContainer = document.getElementById('plot-type-filters');
-  if (!difficultyContainer || !plotTypeContainer) return;
+  const progressContainer = document.getElementById('progress-filters');
+  if (!difficultyContainer || !plotTypeContainer || !progressContainer) return;
 
   const difficultyButtons = getAvailableDifficulties(battles).map(difficulty => (
     createFilterButton('difficulty', difficulty, getDifficultyLabel(difficulty), onFiltersChanged)
@@ -225,9 +232,13 @@ function renderFilterControls(battles, onFiltersChanged) {
   const plotTypeButtons = getAvailablePlotTypes(battles).map(plotType => (
     createFilterButton('plotType', plotType, formatTagLabel(plotType), onFiltersChanged)
   ));
+  const progressButtons = [
+    createFilterButton('progress', NO_BEST_FILTER_VALUE, 'No best yet', onFiltersChanged)
+  ];
 
   difficultyContainer.replaceChildren(...difficultyButtons);
   plotTypeContainer.replaceChildren(...plotTypeButtons);
+  progressContainer.replaceChildren(...progressButtons);
 
   const clearButton = document.querySelector('.battle-filter-clear');
   if (clearButton) {
@@ -312,6 +323,14 @@ function getFilteredBattles(battles) {
     if (plotTypeFilters.size) {
       const plotTypes = getBattlePlotTypes(battle);
       if (!plotTypes.some(plotType => plotTypeFilters.has(plotType))) {
+        return false;
+      }
+    }
+
+    const progressFilters = activeBattleFilters.progress;
+    if (progressFilters.size) {
+      const matchesNoBestFilter = progressFilters.has(NO_BEST_FILTER_VALUE) && !battleHasLocalBestScore(battle);
+      if (!matchesNoBestFilter) {
         return false;
       }
     }
