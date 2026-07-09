@@ -1,293 +1,114 @@
 [
   {
-    "name": [
-      "australia"
-    ],
-    "title": [
-      "Mapping Australia"
-    ],
-    "image": [
-      "australia.png"
-    ],
-    "difficulty": [
-      "intermediate"
-    ],
-    "plotTypes": [
-      "map"
-    ],
-    "packages": [
-      "dplyr",
-      "ggplot2",
-      "ozmaps",
-      "sf"
-    ]
+    "name": ["australia"],
+    "title": ["Mapping Australia"],
+    "image": ["australia.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["map"],
+    "packages": ["dplyr", "ggplot2", "ozmaps", "sf"]
   },
   {
-    "name": [
-      "australian_maths_uptake"
-    ],
-    "title": [
-      "Australian Mathematics Uptake"
-    ],
-    "image": [
-      "australian_maths_uptake.png"
-    ],
-    "difficulty": [
-      "intermediate"
-    ],
-    "plotTypes": [
-      "bar chart"
-    ],
-    "packages": [
-      "dplyr",
-      "ggplot2",
-      "tidyr"
-    ]
+    "name": ["australian_maths_uptake"],
+    "title": ["Australian Mathematics Uptake"],
+    "image": ["australian_maths_uptake.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["bar chart"],
+    "packages": ["dplyr", "ggplot2", "tidyr"]
   },
   {
-    "name": [
-      "basic_penguins_2"
-    ],
-    "title": [
-      "Penguin Distributions"
-    ],
-    "image": [
-      "basic_penguins_2.png"
-    ],
-    "difficulty": [
-      "easy"
-    ],
-    "plotTypes": [
-      "histogram"
-    ],
-    "packages": [
-      "ggplot2",
-      "palmerpenguins"
-    ]
+    "name": ["basic_penguins_2"],
+    "title": ["Penguin Distributions"],
+    "image": ["basic_penguins_2.png"],
+    "difficulty": ["easy"],
+    "plotTypes": ["histogram"],
+    "packages": ["ggplot2", "palmerpenguins"]
   },
   {
-    "name": [
-      "basic_penguins"
-    ],
-    "title": [
-      "Penguin Scatters"
-    ],
-    "image": [
-      "basic_penguins.png"
-    ],
-    "difficulty": [
-      "easy"
-    ],
-    "plotTypes": [
-      "scatter"
-    ],
-    "packages": [
-      "ggplot2",
-      "palmerpenguins"
-    ]
+    "name": ["basic_penguins"],
+    "title": ["Penguin Scatters"],
+    "image": ["basic_penguins.png"],
+    "difficulty": ["easy"],
+    "plotTypes": ["scatter"],
+    "packages": ["ggplot2", "palmerpenguins"]
   },
   {
-    "name": [
-      "circle_plot"
-    ],
-    "title": [
-      "Circle with gaps"
-    ],
-    "image": [
-      "circle_plot.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "circular bar chart"
-    ],
-    "packages": [
-      "ggplot2"
-    ]
+    "name": ["circle_plot"],
+    "title": ["Circle with gaps"],
+    "image": ["circle_plot.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["circular bar chart"],
+    "packages": ["ggplot2"]
   },
   {
-    "name": [
-      "election"
-    ],
-    "title": [
-      "Australian Election Greens Vote Share"
-    ],
-    "image": [
-      "election.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "map",
-      "beeswarm",
-      "composite"
-    ],
-    "packages": [
-      "dplyr",
-      "forcats",
-      "ggbeeswarm",
-      "ggplot2",
-      "ozmaps",
-      "patchwork"
-    ]
+    "name": ["election"],
+    "title": ["Australian Election Greens Vote Share"],
+    "image": ["election.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["map", "beeswarm", "composite"],
+    "packages": ["dplyr", "forcats", "ggbeeswarm", "ggplot2", "ozmaps", "patchwork"]
   },
   {
-    "name": [
-      "forest_plot"
-    ],
-    "title": [
-      "Forest Plot"
-    ],
-    "image": [
-      "forest_plot.png"
-    ],
-    "difficulty": [
-      "intermediate"
-    ],
-    "plotTypes": [
-      "forest plot",
-      "interval"
-    ],
-    "packages": [
-      "ggplot2"
-    ]
+    "name": ["forest_plot"],
+    "title": ["Forest Plot"],
+    "image": ["forest_plot.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["forest plot", "interval"],
+    "packages": ["ggplot2"]
   },
   {
-    "name": [
-      "gene_plot"
-    ],
-    "title": [
-      "Gene plot"
-    ],
-    "image": [
-      "gene_plot.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "gene plot"
-    ],
-    "packages": [
-      "dplyr",
-      "gggenes",
-      "ggplot2"
-    ]
+    "name": ["gene_plot"],
+    "title": ["Gene plot"],
+    "image": ["gene_plot.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["gene plot"],
+    "packages": ["dplyr", "gggenes", "ggplot2"]
   },
   {
-    "name": [
-      "ggmarginal"
-    ],
-    "title": [
-      "Marginal Distributions"
-    ],
-    "image": [
-      "ggmarginal.png"
-    ],
-    "difficulty": [
-      "intermediate"
-    ],
-    "plotTypes": [
-      "scatter",
-      "marginal histogram"
-    ],
-    "packages": [
-      "ggExtra",
-      "ggplot2"
-    ]
+    "name": ["ggmarginal"],
+    "title": ["Marginal Distributions"],
+    "image": ["ggmarginal.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["scatter", "marginal histogram"],
+    "packages": ["ggExtra", "ggplot2"]
   },
   {
-    "name": [
-      "pedestrian_uncertainty"
-    ],
-    "title": [
-      "Uncertainty over time"
-    ],
-    "image": [
-      "pedestrian_uncertainty.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "uncertainty",
-      "time series"
-    ],
-    "packages": [
-      "distributional",
-      "ggdist",
-      "ggplot2"
-    ]
+    "name": ["hiv_distributions"],
+    "title": ["HIV Neutralization"],
+    "image": ["hiv_distributions.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["beeswarm"],
+    "packages": ["dplyr", "ggbeeswarm", "ggplot2", "tibble"]
   },
   {
-    "name": [
-      "sir_model"
-    ],
-    "title": [
-      "SIR Model"
-    ],
-    "image": [
-      "sir_model.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "time series",
-      "bar chart"
-    ],
-    "packages": [
-      "dplyr",
-      "ggplot2"
-    ]
+    "name": ["pedestrian_uncertainty"],
+    "title": ["Uncertainty over time"],
+    "image": ["pedestrian_uncertainty.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["uncertainty", "time series"],
+    "packages": ["distributional", "ggdist", "ggplot2"]
   },
   {
-    "name": [
-      "violin_combo"
-    ],
-    "title": [
-      "Combo Plots"
-    ],
-    "image": [
-      "violin_combo.png"
-    ],
-    "difficulty": [
-      "intermediate"
-    ],
-    "plotTypes": [
-      "violin",
-      "boxplot"
-    ],
-    "packages": [
-      "dplyr",
-      "ggplot2"
-    ]
+    "name": ["sir_model"],
+    "title": ["SIR Model"],
+    "image": ["sir_model.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["time series", "bar chart"],
+    "packages": ["dplyr", "ggplot2"]
   },
   {
-    "name": [
-      "wages_model"
-    ],
-    "title": [
-      "Wages Model"
-    ],
-    "image": [
-      "wages_model.png"
-    ],
-    "difficulty": [
-      "hard"
-    ],
-    "plotTypes": [
-      "line chart",
-      "model"
-    ],
-    "packages": [
-      "brolgar",
-      "colorspace",
-      "dplyr",
-      "ggplot2",
-      "lme4"
-    ]
+    "name": ["violin_combo"],
+    "title": ["Combo Plots"],
+    "image": ["violin_combo.png"],
+    "difficulty": ["intermediate"],
+    "plotTypes": ["violin", "boxplot"],
+    "packages": ["dplyr", "ggplot2"]
+  },
+  {
+    "name": ["wages_model"],
+    "title": ["Wages Model"],
+    "image": ["wages_model.png"],
+    "difficulty": ["hard"],
+    "plotTypes": ["line chart", "model"],
+    "packages": ["brolgar", "colorspace", "dplyr", "ggplot2", "lme4"]
   }
 ]
