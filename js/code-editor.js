@@ -4,9 +4,12 @@ let webR;
 let sessionEnv;
 let preRunCode = '';
 let preservedSessionNames = [];
+let currentChallengeId = '';
 let scriptTabs = [];
 let activeScriptId = null;
 let scriptSequence = 1;
+let scriptStorageSaveTimer = null;
+let isLoadingScriptIntoEditor = false;
 let terminalInput;
 let terminalOutput;
 let terminalScroll;
@@ -17,6 +20,9 @@ let terminalHistoryIndex = 0;
 
 const PLOT_BACKGROUND = 'rgba(255,255,255,1)';
 const WEBR_GRAPHICS_SIZE = { width: 350, height: 200 };
+const SCRIPT_WORKSPACE_STORAGE_PREFIX = 'ggplot-battles-script-workspace-v1:';
+const SCRIPT_WORKSPACE_SAVE_DELAY_MS = 350;
+const MAX_RESTORED_SCRIPT_TABS = 25;
 
 let editorInitialized = false;
 
@@ -33,6 +39,7 @@ async function initializeEditor() {
 
   const runButton = document.getElementById('runButton');
   const challengeId = getChallengeId();
+  currentChallengeId = challengeId;
 
   editor = setupEditor();
   setupScriptTabs();
@@ -84,7 +91,12 @@ function setupEditor() {
   aceEditor.setTheme('ace/theme/monokai');
   aceEditor.session.setUseWrapMode(true);
   aceEditor.session.setTabSize(2);
-  aceEditor.session.on('change', () => markScoreStale('edit'));
+  aceEditor.session.on('change', () => {
+    markScoreStale('edit');
+    if (!isLoadingScriptIntoEditor) {
+      scheduleScriptWorkspaceSave();
+    }
+  });
   addEditorRunShortcut(aceEditor, 'runSelectionCtrlEnter', 'Ctrl-Enter');
   addEditorRunShortcut(aceEditor, 'runSelectionCommandEnter', 'Command-Enter');
   window.addEventListener('resize', () => aceEditor.resize());
@@ -328,18 +340,32 @@ function setupScriptTabs() {
     }
   });
   window.addEventListener('resize', closeScriptContextMenu);
+  window.addEventListener('beforeunload', saveScriptWorkspaceNow);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveScriptWorkspaceNow();
+    }
+  });
 
   addButton?.addEventListener('click', addScriptTab);
 }
 
 function initializeScriptTabs(starterCode) {
-  scriptSequence = 1;
-  scriptTabs = [{
-    id: 'script-1',
-    name: 'script.R',
-    code: starterCode
-  }];
-  activeScriptId = scriptTabs[0].id;
+  const savedWorkspace = loadSavedScriptWorkspace();
+  if (savedWorkspace) {
+    scriptSequence = savedWorkspace.scriptSequence;
+    scriptTabs = savedWorkspace.scripts;
+    activeScriptId = savedWorkspace.activeScriptId;
+  } else {
+    scriptSequence = 1;
+    scriptTabs = [{
+      id: 'script-1',
+      name: 'script.R',
+      code: starterCode
+    }];
+    activeScriptId = scriptTabs[0].id;
+  }
+
   renderScriptTabs();
   loadActiveScriptIntoEditor();
 }
@@ -355,6 +381,7 @@ function addScriptTab() {
   };
   scriptTabs.push(script);
   switchScriptTab(script.id);
+  saveScriptWorkspaceNow();
 }
 
 function switchScriptTab(scriptId) {
@@ -365,6 +392,7 @@ function switchScriptTab(scriptId) {
   activeScriptId = scriptId;
   renderScriptTabs();
   loadActiveScriptIntoEditor();
+  saveScriptWorkspaceNow();
 }
 
 function closeScriptTab(scriptId) {
@@ -387,6 +415,7 @@ function closeScriptTab(scriptId) {
   }
 
   renderScriptTabs();
+  saveScriptWorkspaceNow();
 }
 
 function renameScriptTab(scriptId) {
@@ -401,6 +430,7 @@ function renameScriptTab(scriptId) {
 
   script.name = normalizedName;
   renderScriptTabs();
+  saveScriptWorkspaceNow();
 }
 
 function createScriptContextMenu() {
@@ -506,7 +536,12 @@ function loadActiveScriptIntoEditor() {
   const script = getActiveScript();
   if (!script || !editor) return;
 
-  editor.setValue(script.code, -1);
+  isLoadingScriptIntoEditor = true;
+  try {
+    editor.setValue(script.code, -1);
+  } finally {
+    isLoadingScriptIntoEditor = false;
+  }
   editor.resize();
   editor.focus();
 }
@@ -546,6 +581,90 @@ function renderScriptTabs() {
   });
 
   tabsContainer.replaceChildren(...tabButtons);
+}
+
+function getScriptWorkspaceStorageKey() {
+  return currentChallengeId
+    ? `${SCRIPT_WORKSPACE_STORAGE_PREFIX}${currentChallengeId}`
+    : '';
+}
+
+function scheduleScriptWorkspaceSave() {
+  if (!getScriptWorkspaceStorageKey()) return;
+
+  if (scriptStorageSaveTimer) {
+    window.clearTimeout(scriptStorageSaveTimer);
+  }
+
+  scriptStorageSaveTimer = window.setTimeout(() => {
+    scriptStorageSaveTimer = null;
+    saveScriptWorkspaceNow();
+  }, SCRIPT_WORKSPACE_SAVE_DELAY_MS);
+}
+
+function saveScriptWorkspaceNow() {
+  const storageKey = getScriptWorkspaceStorageKey();
+  if (!storageKey || !scriptTabs.length) return;
+
+  if (scriptStorageSaveTimer) {
+    window.clearTimeout(scriptStorageSaveTimer);
+    scriptStorageSaveTimer = null;
+  }
+
+  saveActiveScript();
+
+  const workspace = {
+    version: 1,
+    activeScriptId,
+    scriptSequence,
+    scripts: scriptTabs.map(script => ({
+      id: script.id,
+      name: script.name,
+      code: script.code
+    }))
+  };
+
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(workspace));
+  } catch (err) {
+    console.warn('Unable to save script workspace:', err);
+  }
+}
+
+function loadSavedScriptWorkspace() {
+  const storageKey = getScriptWorkspaceStorageKey();
+  if (!storageKey) return null;
+
+  let savedWorkspace;
+  try {
+    const storedWorkspace = localStorage.getItem(storageKey);
+    if (!storedWorkspace) return null;
+    savedWorkspace = JSON.parse(storedWorkspace);
+  } catch (err) {
+    console.warn('Unable to load saved script workspace:', err);
+    return null;
+  }
+
+  const savedScripts = Array.isArray(savedWorkspace?.scripts)
+    ? savedWorkspace.scripts.slice(0, MAX_RESTORED_SCRIPT_TABS)
+    : [];
+  if (!savedScripts.length) return null;
+
+  const activeIndex = Math.max(
+    0,
+    savedScripts.findIndex(script => script?.id === savedWorkspace.activeScriptId)
+  );
+  const scripts = savedScripts.map((script, index) => ({
+    id: `script-${index + 1}`,
+    name: normalizeScriptName(typeof script?.name === 'string' ? script.name : '') || `script-${index + 1}.R`,
+    code: typeof script?.code === 'string' ? script.code : ''
+  }));
+
+  return {
+    scripts,
+    activeScriptId: scripts[Math.min(activeIndex, scripts.length - 1)].id,
+    scriptSequence: scripts.length
+  };
 }
 
 function setupReferenceTabs() {
