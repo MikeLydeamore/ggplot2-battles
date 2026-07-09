@@ -16,6 +16,7 @@ let activePlotPanContainer = null;
 let plotPanPointerId = null;
 let plotPanStart = null;
 let isSyncingPlotScroll = false;
+let pendingComparisonDetail = {};
 
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
 const PLOT_MAX_FIT_WIDTH = 840;
@@ -295,12 +296,13 @@ function getContentSize(element) {
   };
 }
 
-function compareRenderedPlot() {
+function compareRenderedPlot(detail = {}) {
   if (!userCanvas || !targetCanvas) {
     console.error('Cannot compare plots because canvases are missing.');
     return;
   }
 
+  pendingComparisonDetail = detail && typeof detail === 'object' ? detail : {};
   resetDiffView();
 
   const target = copyCanvas(targetCanvas);
@@ -348,7 +350,7 @@ function handleComparisonResult(data) {
   const score = Number((100 - mismatch).toFixed(2));
   const bestScore = saveLocalBestScore(score);
   animateSimilarityScore(score);
-  dispatchScore(score, bestScore);
+  dispatchScore(score, bestScore, pendingComparisonDetail);
 
   if (data.getImageDataUrl) {
     drawDiffImage(data.getImageDataUrl());
@@ -452,9 +454,9 @@ function getCurrentChallengeId() {
   return parts[parts.length - 1] || '';
 }
 
-function dispatchScore(score, bestScore) {
+function dispatchScore(score, bestScore, detail = {}) {
   document.dispatchEvent(new CustomEvent('battle-score-updated', {
-    detail: { score, bestScore }
+    detail: { ...detail, score, bestScore }
   }));
 }
 

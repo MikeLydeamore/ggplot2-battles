@@ -6,6 +6,8 @@ const OWN_SUBMISSIONS_STORAGE_KEY_PREFIX = 'ggplotBattlesOwnLeaderboardSubmissio
 let challengeId;
 let getCode;
 let latestScore = null;
+let latestScoredCode = '';
+let scoreState = 'unscored';
 let submittedLatestScore = false;
 let latestSubmissionId = null;
 let isSubmitting = false;
@@ -15,9 +17,10 @@ let nameInput;
 let submitButton;
 let refreshButton;
 let statusMessage;
+let scoreStateStatus;
 let tableBody;
 
-export function initLeaderboard(options) {
+function initLeaderboard(options) {
   challengeId = options.challengeId;
   getCode = options.getCode;
 
@@ -26,6 +29,7 @@ export function initLeaderboard(options) {
   submitButton = document.getElementById('leaderboard-submit');
   refreshButton = document.getElementById('leaderboard-refresh');
   statusMessage = document.getElementById('leaderboard-status');
+  scoreStateStatus = document.getElementById('score-state-status');
   tableBody = document.getElementById('leaderboard-body');
 
   if (!form || !nameInput || !submitButton || !refreshButton || !tableBody) {
@@ -37,15 +41,31 @@ export function initLeaderboard(options) {
   form.addEventListener('submit', submitScore);
   refreshButton.addEventListener('click', loadLeaderboard);
   document.addEventListener('battle-score-updated', handleScoreUpdated);
+  document.addEventListener('battle-score-stale', handleScoreStale);
 
+  updateScoreStateStatus();
   updateSubmitButton();
   loadLeaderboard();
 }
 
 function handleScoreUpdated(event) {
   latestScore = Number(event.detail.score);
+  latestScoredCode = String(event.detail.code || getCode?.() || '');
+  const currentCode = String(getCode?.() || '');
+  scoreState = Number.isFinite(latestScore) && latestScoredCode
+    ? (currentCode === latestScoredCode ? 'scored' : 'stale')
+    : 'unscored';
   submittedLatestScore = false;
   latestSubmissionId = null;
+  updateScoreStateStatus();
+  updateSubmitButton();
+}
+
+function handleScoreStale() {
+  submittedLatestScore = false;
+  latestSubmissionId = null;
+  scoreState = Number.isFinite(latestScore) ? 'stale' : 'unscored';
+  updateScoreStateStatus();
   updateSubmitButton();
 }
 
@@ -89,6 +109,12 @@ async function submitScore(event) {
     return;
   }
 
+  if (scoreState !== 'scored' || !latestScoredCode) {
+    setStatus('Run & Compare the full script before submitting.');
+    updateSubmitButton();
+    return;
+  }
+
   isSubmitting = true;
   updateSubmitButton();
   setStatus('Submitting score...');
@@ -103,7 +129,7 @@ async function submitScore(event) {
         challengeId,
         displayName,
         score: latestScore,
-        code: getCode()
+        code: latestScoredCode
       })
     });
     const payload = await parseJsonResponse(response);
@@ -239,8 +265,25 @@ function updateSubmitButton() {
   const displayName = normalizeDisplayName(nameInput.value);
   submitButton.disabled = isSubmitting
     || submittedLatestScore
+    || scoreState !== 'scored'
     || !Number.isFinite(latestScore)
+    || !latestScoredCode
     || !isValidDisplayName(displayName);
+}
+
+function updateScoreStateStatus() {
+  if (!scoreStateStatus) return;
+
+  const labels = {
+    unscored: 'Score not ready',
+    stale: 'Score needs update',
+    scored: 'Ready to submit'
+  };
+
+  scoreStateStatus.textContent = labels[scoreState] || labels.unscored;
+  scoreStateStatus.classList.toggle('is-unscored', scoreState === 'unscored');
+  scoreStateStatus.classList.toggle('is-stale', scoreState === 'stale');
+  scoreStateStatus.classList.toggle('is-scored', scoreState === 'scored');
 }
 
 function rememberOwnSubmission(submission) {
@@ -328,3 +371,5 @@ function formatDate(value) {
     timeStyle: 'short'
   }).format(date);
 }
+
+window.initLeaderboard = initLeaderboard;

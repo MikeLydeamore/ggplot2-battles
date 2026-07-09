@@ -1,10 +1,9 @@
-import { initLeaderboard } from './leaderboard.js';
-
 let editor;
 let shelter;
 let webR;
 let sessionEnv;
 let preRunCode = '';
+let preservedSessionNames = [];
 let scriptTabs = [];
 let activeScriptId = null;
 let scriptSequence = 1;
@@ -39,7 +38,7 @@ async function initializeEditor() {
   setupScriptTabs();
   setupReferenceTabs();
   setupTerminal();
-  initLeaderboard({
+  window.initLeaderboard?.({
     challengeId,
     getCode: () => {
       saveActiveScript();
@@ -85,6 +84,7 @@ function setupEditor() {
   aceEditor.setTheme('ace/theme/monokai');
   aceEditor.session.setUseWrapMode(true);
   aceEditor.session.setTabSize(2);
+  aceEditor.session.on('change', () => markScoreStale('edit'));
   addEditorRunShortcut(aceEditor, 'runSelectionCtrlEnter', 'Ctrl-Enter');
   addEditorRunShortcut(aceEditor, 'runSelectionCommandEnter', 'Command-Enter');
   window.addEventListener('resize', () => aceEditor.resize());
@@ -669,6 +669,7 @@ async function runSessionCode(code, options = {}) {
   if (!command.trim()) return;
 
   appendTerminalCommand(command);
+  markScoreStale(options.scoreReason || 'interactive');
   setTerminalBusy(true, options.busyText || 'Running code...');
 
   const runButton = document.getElementById('runButton');
@@ -806,11 +807,12 @@ async function initializeChallenge(challengeSource) {
 
   const options = extractChallengeOptions(challengeSource);
   preRunCode = options['prerun-code'] || '';
+  preservedSessionNames = getDatasetObjectNames(options['dataset-name'] || '');
 
   renderChallengeDetails(options);
   setStarterCode(options);
   await renderTargetPlot(challengeSource);
-  await cleanupTargetWorkspace(options);
+  await cleanupSessionWorkspace();
   await refreshVariables();
 }
 
@@ -871,9 +873,8 @@ async function renderTargetPlot(challengeSource) {
   }
 }
 
-async function cleanupTargetWorkspace(options) {
-  const keepNames = getDatasetObjectNames(options['dataset-name'] || '');
-  const keepList = keepNames.map(quoteRString).join(', ');
+async function cleanupSessionWorkspace() {
+  const keepList = preservedSessionNames.map(quoteRString).join(', ');
   const keepVector = keepList ? `c(${keepList})` : 'character()';
   let capture;
 
@@ -1074,10 +1075,10 @@ function drawDefaultImage(canvas) {
   ctx.fillText('No plot', canvas.width / 2, canvas.height / 2);
 }
 
-async function renderUserPlot() {
+async function renderUserPlot(userCode) {
   let renderedPlot = false;
   let capture;
-  const code = getExecutableCode();
+  const code = getExecutableCode(userCode);
 
   try {
     capture = await captureSessionR(code, {
@@ -1104,19 +1105,25 @@ async function renderUserPlot() {
   return renderedPlot;
 }
 
-function getExecutableCode() {
+function getUserScriptCode() {
   saveActiveScript();
-  const code = editor.getValue();
+  return editor.getValue();
+}
+
+function getExecutableCode(userCode = getUserScriptCode()) {
+  const code = userCode;
   return preRunCode ? `${preRunCode}\n${code}` : code;
 }
 
 async function runAndCompare() {
   const runButton = document.getElementById('runButton');
+  const scoredCode = getUserScriptCode();
   setRunButtonRunning(runButton);
 
   try {
-    await renderUserPlot();
-    window.compareRenderedPlot?.();
+    await cleanupSessionWorkspace();
+    await renderUserPlot(scoredCode);
+    window.compareRenderedPlot?.({ code: scoredCode, source: 'full-script' });
     await refreshVariables();
   } catch (err) {
     console.error('Error running R code:', err);
@@ -1124,6 +1131,12 @@ async function runAndCompare() {
   } finally {
     setRunButtonReady(runButton);
   }
+}
+
+function markScoreStale(reason) {
+  document.dispatchEvent(new CustomEvent('battle-score-stale', {
+    detail: { reason }
+  }));
 }
 
 function drawImageToCanvas(canvas, image) {

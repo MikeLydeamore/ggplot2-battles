@@ -115,6 +115,23 @@ body {
   font-weight: 700;
 }
 
+.score-state-status {
+  border-left: 1px solid rgba(13, 202, 240, 0.3);
+  color: var(--battle-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding-left: 0.6rem;
+  white-space: nowrap;
+}
+
+.score-state-status.is-stale {
+  color: var(--battle-warning);
+}
+
+.score-state-status.is-scored {
+  color: var(--battle-success);
+}
+
 .battle-ide-shell {
   width: min(1600px, calc(100vw - 2rem));
   margin: 1rem auto;
