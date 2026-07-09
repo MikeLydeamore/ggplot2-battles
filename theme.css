@@ -241,10 +241,10 @@ body {
 
 .ide-workspace {
   display: grid;
-  grid-template-columns: minmax(22rem, 1fr) minmax(24rem, 1fr);
-  grid-template-rows: minmax(18rem, 1fr) minmax(18rem, 1fr);
+  grid-template-columns: minmax(20rem, 0.95fr) minmax(26rem, 1.05fr);
+  grid-template-rows: minmax(19.5rem, 1fr) minmax(19.5rem, 1fr);
   gap: 1px;
-  height: clamp(720px, 78vh, 920px);
+  height: clamp(760px, 84vh, 1020px);
   min-height: 0;
   background: var(--battle-border);
 }
@@ -501,15 +501,28 @@ body {
 
 .ide-plot-body,
 .ide-output-body {
+  padding: 1rem;
+  overflow: auto;
+}
+
+.ide-plot-body.is-pannable,
+.ide-output-body.is-pannable {
+  cursor: grab;
+}
+
+.ide-plot-body.is-panning,
+.ide-output-body.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.plot-scroll-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  overflow: hidden;
-}
-
-.ide-output-body {
-  flex-direction: column;
+  width: 100%;
+  min-width: min-content;
+  min-height: 100%;
 }
 
 .plot-canvas {
@@ -526,6 +539,68 @@ body {
   justify-content: center;
 }
 
+.ide-output-controls {
+  position: absolute;
+  top: 50%;
+  right: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  transform: translateY(-50%);
+}
+
+.plot-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  overflow: hidden;
+  border: 1px solid rgba(173, 181, 189, 0.22);
+  border-radius: 5px;
+  background: rgba(9, 24, 39, 0.34);
+}
+
+.plot-zoom-button,
+.plot-zoom-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--battle-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.plot-zoom-button {
+  width: 1.9rem;
+}
+
+.plot-zoom-reset {
+  min-width: 3.15rem;
+  padding: 0 0.45rem;
+  border-left: 1px solid rgba(173, 181, 189, 0.18);
+  border-right: 1px solid rgba(173, 181, 189, 0.18);
+  color: var(--battle-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.plot-zoom-button:hover,
+.plot-zoom-button:focus-visible,
+.plot-zoom-reset:hover,
+.plot-zoom-reset:focus-visible {
+  background: rgba(13, 202, 240, 0.12);
+  color: var(--battle-cyan);
+  outline: 0;
+}
+
+.plot-zoom-button:disabled {
+  color: var(--battle-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .diff-toggle {
   display: inline-flex;
   align-items: center;
@@ -537,10 +612,8 @@ body {
 }
 
 .ide-output-header .diff-toggle {
-  position: absolute;
-  top: 50%;
-  right: 0.85rem;
-  transform: translateY(-50%);
+  position: static;
+  transform: none;
 }
 
 .diff-toggle input {
@@ -1333,8 +1406,25 @@ html {
 
   .ide-workspace {
     grid-template-columns: 1fr;
-    grid-template-rows: 28rem 20rem 18rem 20rem;
+    grid-template-rows: 28rem 22rem 18rem 22rem;
     height: auto;
+  }
+
+  .ide-output-header {
+    min-height: 5rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .ide-output-header .ide-panel-title {
+    flex: 0 0 100%;
+  }
+
+  .ide-output-controls {
+    position: static;
+    justify-content: center;
+    width: 100%;
+    transform: none;
   }
 
   .script-tab {

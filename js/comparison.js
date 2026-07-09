@@ -4,10 +4,24 @@ let targetCanvas;
 let sliderHandle;
 let diffToggle;
 let similarityScore;
+let zoomOutButton;
+let zoomInButton;
+let zoomResetButton;
+let zoomValue;
 let scoreAnimation;
 let syncedPlotWidth = null;
+let plotZoom = 1;
+let plotPanContainers = [];
+let activePlotPanContainer = null;
+let plotPanPointerId = null;
+let plotPanStart = null;
+let isSyncingPlotScroll = false;
 
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
+const PLOT_MAX_FIT_WIDTH = 840;
+const PLOT_ZOOM_MIN = 0.75;
+const PLOT_ZOOM_MAX = 2;
+const PLOT_ZOOM_STEP = 0.1;
 
 const diffCanvas = document.createElement('canvas');
 diffCanvas.id = 'diff-canvas';
@@ -34,6 +48,10 @@ function setupComparisonView() {
   sliderHandle = document.getElementById('slider');
   diffToggle = document.getElementById('show-diff');
   similarityScore = document.getElementById('similarity-score');
+  zoomOutButton = document.getElementById('plot-zoom-out');
+  zoomInButton = document.getElementById('plot-zoom-in');
+  zoomResetButton = document.getElementById('plot-zoom-reset');
+  zoomValue = document.getElementById('plot-zoom-value');
 
   if (!sliderContainer || !userCanvas || !targetCanvas || !sliderHandle) {
     return;
@@ -43,9 +61,11 @@ function setupComparisonView() {
 
   fillInitialCanvas(userCanvas);
   setupDiffCanvas();
-  syncPlotSizes();
   setupSlider();
   setupDiffToggle();
+  setupZoomControls();
+  setupPlotPanning();
+  syncPlotSizes();
   setupResizeObserver();
 }
 
@@ -91,6 +111,123 @@ function setupDiffToggle() {
   diffToggle.addEventListener('change', updateDiffVisibility);
 }
 
+function setupZoomControls() {
+  zoomOutButton?.addEventListener('click', () => setPlotZoom(plotZoom - PLOT_ZOOM_STEP));
+  zoomInButton?.addEventListener('click', () => setPlotZoom(plotZoom + PLOT_ZOOM_STEP));
+  zoomResetButton?.addEventListener('click', () => setPlotZoom(1));
+  updateZoomControls();
+}
+
+function setPlotZoom(nextZoom) {
+  const clampedZoom = clampZoom(nextZoom);
+  if (clampedZoom === plotZoom) return;
+
+  plotZoom = clampedZoom;
+  syncPlotSizes();
+  updateZoomControls();
+}
+
+function clampZoom(value) {
+  return Math.min(PLOT_ZOOM_MAX, Math.max(PLOT_ZOOM_MIN, Number(value.toFixed(2))));
+}
+
+function updateZoomControls() {
+  if (zoomValue) {
+    zoomValue.textContent = `${Math.round(plotZoom * 100)}%`;
+  }
+  if (zoomOutButton) {
+    zoomOutButton.disabled = plotZoom <= PLOT_ZOOM_MIN;
+  }
+  if (zoomInButton) {
+    zoomInButton.disabled = plotZoom >= PLOT_ZOOM_MAX;
+  }
+}
+
+function setupPlotPanning() {
+  plotPanContainers = Array.from(document.querySelectorAll('.ide-plot-body, .ide-output-body'));
+
+  plotPanContainers.forEach(container => {
+    container.classList.add('is-pannable');
+    container.addEventListener('pointerdown', handlePlotPanPointerDown);
+    container.addEventListener('scroll', () => syncPlotScroll(container), { passive: true });
+  });
+}
+
+function handlePlotPanPointerDown(event) {
+  if (shouldIgnorePlotPan(event)) return;
+
+  const container = event.currentTarget;
+  if (!canPanPlotContainer(container)) return;
+
+  activePlotPanContainer = container;
+  plotPanPointerId = event.pointerId;
+  plotPanStart = {
+    x: event.clientX,
+    y: event.clientY,
+    left: container.scrollLeft,
+    top: container.scrollTop
+  };
+
+  container.classList.add('is-panning');
+  container.setPointerCapture(event.pointerId);
+  container.addEventListener('pointermove', handlePlotPanPointerMove);
+  container.addEventListener('pointerup', handlePlotPanPointerEnd);
+  container.addEventListener('pointercancel', handlePlotPanPointerEnd);
+  event.preventDefault();
+}
+
+function handlePlotPanPointerMove(event) {
+  if (
+    !activePlotPanContainer
+    || !plotPanStart
+    || event.pointerId !== plotPanPointerId
+  ) {
+    return;
+  }
+
+  activePlotPanContainer.scrollLeft = plotPanStart.left - (event.clientX - plotPanStart.x);
+  activePlotPanContainer.scrollTop = plotPanStart.top - (event.clientY - plotPanStart.y);
+  syncPlotScroll(activePlotPanContainer);
+  event.preventDefault();
+}
+
+function handlePlotPanPointerEnd(event) {
+  if (!activePlotPanContainer || event.pointerId !== plotPanPointerId) return;
+
+  activePlotPanContainer.classList.remove('is-panning');
+  activePlotPanContainer.releasePointerCapture(event.pointerId);
+  activePlotPanContainer.removeEventListener('pointermove', handlePlotPanPointerMove);
+  activePlotPanContainer.removeEventListener('pointerup', handlePlotPanPointerEnd);
+  activePlotPanContainer.removeEventListener('pointercancel', handlePlotPanPointerEnd);
+  activePlotPanContainer = null;
+  plotPanPointerId = null;
+  plotPanStart = null;
+}
+
+function shouldIgnorePlotPan(event) {
+  if (event.button !== 0) return true;
+  if (!(event.target instanceof Element)) return false;
+
+  return Boolean(event.target.closest('.slider, button, input, label'));
+}
+
+function canPanPlotContainer(container) {
+  return container.scrollWidth > container.clientWidth
+    || container.scrollHeight > container.clientHeight;
+}
+
+function syncPlotScroll(sourceContainer) {
+  if (isSyncingPlotScroll) return;
+
+  isSyncingPlotScroll = true;
+  plotPanContainers.forEach(container => {
+    if (container === sourceContainer) return;
+    container.scrollLeft = sourceContainer.scrollLeft;
+    container.scrollTop = sourceContainer.scrollTop;
+  });
+  isSyncingPlotScroll = false;
+}
+
 function updateClip(x) {
   if (!userCanvas || !sliderHandle) return;
 
@@ -125,13 +262,14 @@ function syncPlotSizes() {
 
   const targetSize = getContentSize(targetBody);
   const outputSize = getContentSize(outputBody);
-  const width = Math.floor(Math.min(
-    700,
+  const fitWidth = Math.floor(Math.min(
+    PLOT_MAX_FIT_WIDTH,
     targetSize.width,
     outputSize.width,
     targetSize.height * 1.75,
     outputSize.height * 1.75
   ));
+  const width = Math.floor(fitWidth * plotZoom);
   if (!Number.isFinite(width) || width <= 0) return;
 
   if (width !== syncedPlotWidth) {
@@ -139,6 +277,7 @@ function syncPlotSizes() {
     syncedPlotWidth = width;
   }
   updateClip(width / 2);
+  updateZoomControls();
 }
 
 function getContentSize(element) {
