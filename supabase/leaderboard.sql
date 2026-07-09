@@ -4,10 +4,14 @@ create table if not exists public.leaderboard_submissions (
   display_name text not null check (char_length(display_name) between 2 and 32),
   score numeric(5, 2) not null check (score >= 0 and score <= 100),
   code text not null check (char_length(code) <= 20000),
+  delete_token_hash text,
   ip_hash text,
   user_agent text,
   submitted_at timestamptz not null default now()
 );
+
+alter table public.leaderboard_submissions
+  add column if not exists delete_token_hash text;
 
 alter table public.leaderboard_submissions enable row level security;
 

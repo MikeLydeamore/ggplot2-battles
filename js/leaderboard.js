@@ -1,11 +1,13 @@
 const API_PATH = '/api/leaderboard';
 const MAX_DISPLAY_NAME_LENGTH = 32;
 const NAME_STORAGE_KEY = 'ggplotBattlesDisplayName';
+const OWN_SUBMISSIONS_STORAGE_KEY_PREFIX = 'ggplotBattlesOwnLeaderboardSubmissions';
 
 let challengeId;
 let getCode;
 let latestScore = null;
 let submittedLatestScore = false;
+let latestSubmissionId = null;
 let isSubmitting = false;
 
 let form;
@@ -43,6 +45,7 @@ export function initLeaderboard(options) {
 function handleScoreUpdated(event) {
   latestScore = Number(event.detail.score);
   submittedLatestScore = false;
+  latestSubmissionId = null;
   updateSubmitButton();
 }
 
@@ -111,9 +114,11 @@ async function submitScore(event) {
 
     localStorage.setItem(NAME_STORAGE_KEY, displayName);
     nameInput.value = displayName;
+    rememberOwnSubmission(payload.submission);
     submittedLatestScore = true;
+    latestSubmissionId = payload.submission?.id || null;
     await loadLeaderboard();
-    setStatus('Score submitted.');
+    setStatus('Score submitted. You can remove it from this tab.');
   } catch (err) {
     setStatus(err.message);
   } finally {
@@ -135,6 +140,7 @@ function renderLeaderboard(submissions) {
     appendCell(row, submission.display_name);
     appendCell(row, `${Number(submission.score).toFixed(2)}%`);
     appendCell(row, formatDate(submission.submitted_at));
+    appendActionCell(row, submission);
 
     return row;
   });
@@ -145,7 +151,7 @@ function renderLeaderboard(submissions) {
 function renderEmptyTable(message) {
   const row = document.createElement('tr');
   const cell = document.createElement('td');
-  cell.colSpan = 4;
+  cell.colSpan = 5;
   cell.textContent = message;
   row.appendChild(cell);
   tableBody.replaceChildren(row);
@@ -157,6 +163,65 @@ function appendCell(row, value) {
   row.appendChild(cell);
 }
 
+function appendActionCell(row, submission) {
+  const cell = document.createElement('td');
+  cell.className = 'leaderboard-action-cell';
+
+  const deleteToken = getOwnSubmissionDeleteToken(submission.id);
+  if (deleteToken) {
+    const button = document.createElement('button');
+    button.className = 'leaderboard-remove-button';
+    button.type = 'button';
+    button.textContent = 'Remove';
+    button.addEventListener('click', () => {
+      deleteOwnSubmission(submission.id, deleteToken, button);
+    });
+    cell.appendChild(button);
+  }
+
+  row.appendChild(cell);
+}
+
+async function deleteOwnSubmission(submissionId, deleteToken, button) {
+  if (!challengeId || !submissionId || !deleteToken) return;
+
+  button.disabled = true;
+  setStatus('Removing score...');
+
+  try {
+    const response = await fetch(API_PATH, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        challengeId,
+        submissionId,
+        deleteToken
+      })
+    });
+    const payload = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Could not remove score');
+    }
+
+    forgetOwnSubmission(submissionId);
+    if (submissionId === latestSubmissionId) {
+      submittedLatestScore = false;
+      latestSubmissionId = null;
+    }
+
+    await loadLeaderboard();
+    setStatus('Score removed.');
+  } catch (err) {
+    button.disabled = false;
+    setStatus(err.message);
+  } finally {
+    updateSubmitButton();
+  }
+}
+
 function updateSubmitButton() {
   if (!submitButton || !nameInput) return;
 
@@ -165,6 +230,49 @@ function updateSubmitButton() {
     || submittedLatestScore
     || !Number.isFinite(latestScore)
     || !isValidDisplayName(displayName);
+}
+
+function rememberOwnSubmission(submission) {
+  const deleteToken = submission?.delete_token || submission?.deleteToken;
+  if (!submission?.id || !deleteToken) return;
+
+  const ownSubmissions = getOwnSubmissions();
+  ownSubmissions[submission.id] = deleteToken;
+  saveOwnSubmissions(ownSubmissions);
+}
+
+function forgetOwnSubmission(submissionId) {
+  const ownSubmissions = getOwnSubmissions();
+  delete ownSubmissions[submissionId];
+  saveOwnSubmissions(ownSubmissions);
+}
+
+function getOwnSubmissionDeleteToken(submissionId) {
+  return getOwnSubmissions()[submissionId] || '';
+}
+
+function getOwnSubmissions() {
+  try {
+    const ownSubmissions = JSON.parse(sessionStorage.getItem(getOwnSubmissionsStorageKey()) || '{}');
+    return ownSubmissions && typeof ownSubmissions === 'object' && !Array.isArray(ownSubmissions)
+      ? ownSubmissions
+      : {};
+  } catch (err) {
+    console.info('Unable to read removable leaderboard submissions:', err);
+    return {};
+  }
+}
+
+function saveOwnSubmissions(ownSubmissions) {
+  try {
+    sessionStorage.setItem(getOwnSubmissionsStorageKey(), JSON.stringify(ownSubmissions));
+  } catch (err) {
+    console.info('Unable to remember removable leaderboard submissions:', err);
+  }
+}
+
+function getOwnSubmissionsStorageKey() {
+  return `${OWN_SUBMISSIONS_STORAGE_KEY_PREFIX}:${challengeId}`;
 }
 
 function setStatus(message) {

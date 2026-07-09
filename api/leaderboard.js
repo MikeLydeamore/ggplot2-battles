@@ -26,7 +26,12 @@ module.exports = async function leaderboardHandler(req, res) {
       return;
     }
 
-    res.setHeader('Allow', 'GET, POST, OPTIONS');
+    if (req.method === 'DELETE') {
+      await handleDelete(req, res);
+      return;
+    }
+
+    res.setHeader('Allow', 'GET, POST, DELETE, OPTIONS');
     sendJson(res, 405, { error: 'Method not allowed' });
   } catch (err) {
     const statusCode = err.statusCode || 500;
@@ -64,6 +69,7 @@ async function handlePost(req, res) {
   const score = validateScore(body.score);
   const code = validateCode(body.code);
   const ipHash = hashClientIp(getClientIp(req));
+  const deleteToken = createDeleteToken();
 
   await enforceRateLimit(challengeId, ipHash);
 
@@ -77,13 +83,45 @@ async function handlePost(req, res) {
       display_name: displayName,
       score,
       code,
+      delete_token_hash: hashDeleteToken(deleteToken),
       ip_hash: ipHash,
       user_agent: String(req.headers['user-agent'] || '').slice(0, 300)
     })
   });
 
   sendJson(res, 201, {
-    submission: publicSubmission(submission)
+    submission: {
+      ...publicSubmission(submission),
+      delete_token: deleteToken
+    }
+  });
+}
+
+async function handleDelete(req, res) {
+  const body = await readJsonBody(req);
+  const challengeId = validateChallengeId(body.challengeId || body.challenge_id);
+  const submissionId = validateSubmissionId(body.submissionId || body.submission_id || body.id);
+  const deleteToken = validateDeleteToken(body.deleteToken || body.delete_token);
+  const query = [
+    `id=eq.${encodeURIComponent(submissionId)}`,
+    `challenge_id=eq.${encodeURIComponent(challengeId)}`,
+    `delete_token_hash=eq.${encodeURIComponent(hashDeleteToken(deleteToken))}`
+  ].join('&');
+
+  const deletedSubmissions = await supabaseRequest(`${TABLE_NAME}?${query}`, {
+    method: 'DELETE',
+    headers: {
+      Prefer: 'return=representation'
+    }
+  });
+
+  if (!deletedSubmissions.length) {
+    throw httpError(404, 'Submission not found or cannot be removed from this session.');
+  }
+
+  sendJson(res, 200, {
+    removed: true,
+    submission: publicSubmission(deletedSubmissions[0])
   });
 }
 
@@ -204,6 +242,22 @@ function validateCode(value) {
   return code;
 }
 
+function validateSubmissionId(value) {
+  const submissionId = String(value || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
+    throw httpError(400, 'Invalid submission id');
+  }
+  return submissionId;
+}
+
+function validateDeleteToken(value) {
+  const deleteToken = String(value || '').trim();
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(deleteToken)) {
+    throw httpError(400, 'Invalid remove token');
+  }
+  return deleteToken;
+}
+
 function normalizeDisplayName(value) {
   return value
     .replace(/[\u0000-\u001f\u007f]/g, '')
@@ -228,6 +282,22 @@ function hashClientIp(ipAddress) {
   return crypto
     .createHash('sha256')
     .update(`${salt}:${ipAddress}`)
+    .digest('hex');
+}
+
+function createDeleteToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function hashDeleteToken(deleteToken) {
+  const salt = process.env.LEADERBOARD_DELETE_TOKEN_SALT
+    || process.env.LEADERBOARD_RATE_LIMIT_SALT
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_SECRET_KEY
+    || '';
+  return crypto
+    .createHash('sha256')
+    .update(`${salt}:${deleteToken}`)
     .digest('hex');
 }
 
@@ -267,7 +337,7 @@ function parseJson(text) {
 
 function setCommonHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.LEADERBOARD_ALLOWED_ORIGIN || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
 }

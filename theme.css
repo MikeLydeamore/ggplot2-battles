@@ -750,6 +750,33 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.leaderboard-action-cell {
+  text-align: right;
+  width: 1%;
+}
+
+.leaderboard-remove-button {
+  border: 1px solid rgba(231, 76, 60, 0.55);
+  border-radius: 4px;
+  background: rgba(231, 76, 60, 0.08);
+  color: #f1948a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+}
+
+.leaderboard-remove-button:hover,
+.leaderboard-remove-button:focus-visible {
+  border-color: #f1948a;
+  background: rgba(231, 76, 60, 0.2);
+  color: #fff;
+}
+
+.leaderboard-remove-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .inner-box h4 {
   display: block;
   width: 100%;
