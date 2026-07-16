@@ -5,6 +5,7 @@ let sessionEnv;
 let preRunCode = '';
 let challengeSourceCode = '';
 let challengePlotVariable = '';
+let targetPlotFeatures = null;
 let preservedSessionNames = [];
 let currentChallengeId = '';
 let scriptTabs = [];
@@ -935,6 +936,7 @@ async function initializeChallenge(challengeSource) {
   renderChallengeDetails(options);
   setStarterCode(options);
   await renderTargetPlot(challengeSource);
+  targetPlotFeatures = await getCurrentPlotFeatures(challengePlotVariable);
   await cleanupSessionWorkspace();
   await refreshVariables();
 }
@@ -1265,6 +1267,11 @@ async function runAndCompare() {
 async function calculateCodeSimilarity(userCode) {
   if (!challengeSourceCode) return null;
 
+  const userPlotFeatures = await getCurrentPlotFeatures();
+  if (targetPlotFeatures?.length && userPlotFeatures?.length) {
+    return scoreFeatureOverlap(userPlotFeatures, targetPlotFeatures);
+  }
+
   let capture;
   try {
     capture = await captureSessionR(getCodeSimilarityR(
@@ -1286,6 +1293,182 @@ async function calculateCodeSimilarity(userCode) {
   } finally {
     await destroyCaptureResult(capture);
   }
+}
+
+async function getCurrentPlotFeatures(plotVariable = '') {
+  let capture;
+  try {
+    capture = await captureSessionR(getPlotFeaturesR(plotVariable), {
+      captureStreams: true,
+      captureGraphics: false,
+      captureConditions: false
+    });
+
+    return getCaptureOutputText(capture)
+      .split(/\r?\n/)
+      .filter(line => line.startsWith('GG_BATTLE_PLOT_FEATURE:'))
+      .map(line => line.slice('GG_BATTLE_PLOT_FEATURE:'.length));
+  } catch (err) {
+    console.warn('Unable to inspect the ggplot build tree:', err);
+    return null;
+  } finally {
+    await destroyCaptureResult(capture);
+  }
+}
+
+function scoreFeatureOverlap(userFeatures, targetFeatures) {
+  const userCounts = countFeatures(userFeatures);
+  const targetCounts = countFeatures(targetFeatures);
+  let overlap = 0;
+
+  userCounts.forEach((count, feature) => {
+    overlap += Math.min(count, targetCounts.get(feature) || 0);
+  });
+
+  return Number((200 * overlap / (userFeatures.length + targetFeatures.length)).toFixed(2));
+}
+
+function countFeatures(features) {
+  const counts = new Map();
+  features.forEach(feature => counts.set(feature, (counts.get(feature) || 0) + 1));
+  return counts;
+}
+
+function getPlotFeaturesR(plotVariable) {
+  return `
+local({
+  requested_plot <- ${quoteRString(plotVariable)}
+  plot <- if (nzchar(requested_plot) && exists(requested_plot, inherits = TRUE)) {
+    get(requested_plot, inherits = TRUE)
+  } else {
+    ggplot2::last_plot()
+  }
+
+  if (!inherits(plot, "ggplot")) return(invisible(NULL))
+
+  builder <- get0("build_ggplot", envir = asNamespace("ggplot2"), mode = "function")
+  if (is.null(builder)) builder <- ggplot2::ggplot_build
+  built <- tryCatch(builder(plot), error = function(error) NULL)
+  if (is.null(built)) return(invisible(NULL))
+
+  features <- character()
+  add <- function(value) {
+    value <- gsub("[\\r\\n]+", " ", as.character(value))
+    features <<- c(features, value)
+  }
+  normalise_name <- function(value) sub("colour", "color", value, fixed = TRUE)
+  class_name <- function(value) {
+    classes <- class(value)
+    classes <- classes[!classes %in% c("ggproto", "gg")]
+    if (length(classes)) classes[[1L]] else typeof(value)
+  }
+  value_text <- function(value) {
+    paste(deparse(value, width.cutoff = 500L), collapse = "")
+  }
+  add_values <- function(prefix, value, depth = 0L) {
+    if (depth > 4L || is.environment(value) || is.function(value) || is.language(value)) {
+      return(invisible(NULL))
+    }
+    if (is.null(value)) {
+      add(paste0(prefix, ":NULL"))
+    } else if (is.atomic(value) || inherits(value, "unit")) {
+      if (length(value) <= 20L) {
+        add(paste0(prefix, ":", class_name(value), ":", value_text(value)))
+      } else {
+        add(paste0(prefix, ":", class_name(value), ":length=", length(value)))
+      }
+    } else if (is.list(value)) {
+      value_names <- names(value)
+      if (is.null(value_names)) value_names <- rep("", length(value))
+      for (index in seq_along(value)) {
+        name <- normalise_name(value_names[[index]])
+        if (!nzchar(name)) name <- as.character(index)
+        add_values(paste0(prefix, "$", name), value[[index]], depth + 1L)
+      }
+    } else {
+      add(paste0(prefix, ":class=", class_name(value)))
+    }
+    invisible(NULL)
+  }
+
+  for (index in seq_along(built$plot$layers)) {
+    layer <- built$plot$layers[[index]]
+    prefix <- paste0("layer:", index)
+    add(paste0(prefix, ":geom:", class_name(layer$geom)))
+    add(paste0(prefix, ":stat:", class_name(layer$stat)))
+    add(paste0(prefix, ":position:", class_name(layer$position)))
+
+    mapping <- layer$computed_mapping
+    if (is.null(mapping)) mapping <- layer$mapping
+    for (aesthetic in sort(unique(normalise_name(names(mapping))))) {
+      add(paste0(prefix, ":mapping:", aesthetic))
+    }
+
+    geom_params <- layer$computed_geom_params
+    if (is.null(geom_params)) geom_params <- layer$geom_params
+    stat_params <- layer$computed_stat_params
+    if (is.null(stat_params)) stat_params <- layer$stat_params
+    add_values(paste0(prefix, ":geom-param"), geom_params)
+    add_values(paste0(prefix, ":stat-param"), stat_params)
+
+    layer_data <- built$data[[index]]
+    data_names <- names(layer_data)
+    for (column_index in seq_along(data_names)) {
+      column <- normalise_name(data_names[[column_index]])
+      add(paste0(prefix, ":output:", column))
+      values <- layer_data[[column_index]]
+      if (length(values) && (is.atomic(values) || is.factor(values)) &&
+          length(unique(values)) == 1L) {
+        add_values(paste0(prefix, ":constant:", column), values[[1L]])
+      }
+    }
+  }
+
+  scales <- built$plot$scales$scales
+  for (scale in scales) {
+    aesthetics <- sort(unique(normalise_name(scale$aesthetics)))
+    prefix <- paste0("scale:", paste(aesthetics, collapse = ","))
+    add(paste0(prefix, ":class:", class_name(scale)))
+    add_values(paste0(prefix, ":limits"), tryCatch(scale$get_limits(), error = function(error) NULL))
+    breaks <- tryCatch(scale$get_breaks(), error = function(error) NULL)
+    add_values(paste0(prefix, ":breaks"), breaks)
+    add_values(
+      paste0(prefix, ":labels"),
+      tryCatch(scale$get_labels(breaks), error = function(error) NULL)
+    )
+    add_values(
+      paste0(prefix, ":mapped"),
+      tryCatch(scale$map(scale$get_limits()), error = function(error) NULL)
+    )
+  }
+
+  add(paste0("coordinates:", class_name(built$plot$coordinates)))
+  add(paste0("facet:", class_name(built$plot$facet)))
+  add_values("facet-param", built$plot$facet$params)
+
+  for (label in intersect(c("title", "subtitle", "caption", "tag"), names(built$plot$labels))) {
+    add_values(paste0("label:", label), built$plot$labels[[label]])
+  }
+
+  grob <- tryCatch(grid::grid.force(ggplot2::ggplotGrob(plot)), error = function(error) NULL)
+  if (!is.null(grob)) {
+    listing <- grid::grid.ls(grob, recursive = TRUE, print = FALSE)
+    grob_names <- gsub("([.-])[0-9]+(?=([.-]|$))", "", listing$name, perl = TRUE)
+    meaningful <- grepl(
+      "geom_|stat_|panel\\\\.|axis|guide|legend|strip|title|subtitle|caption",
+      grob_names
+    )
+    for (index in which(meaningful)) {
+      add(paste0(
+        "grob:", listing$gDepth[[index]], ":", listing$type[[index]], ":",
+        grob_names[[index]]
+      ))
+    }
+  }
+
+  for (feature in features) cat("GG_BATTLE_PLOT_FEATURE:", feature, "\\n", sep = "")
+})
+`;
 }
 
 function renderCodeSimilarity(score) {
@@ -1381,6 +1564,73 @@ local({
   ast_features <- function(expression, assignments) {
     features <- character()
 
+    add_feature <- function(feature) {
+      features <<- c(features, feature)
+    }
+
+    get_call_arguments <- function(node) {
+      arguments <- as.list(node)[-1L]
+      argument_names <- names(arguments)
+      if (is.null(argument_names)) argument_names <- rep("", length(arguments))
+      names(arguments) <- vapply(argument_names, normalise_name, character(1))
+      arguments
+    }
+
+    visit_flattened <- function(node, context, seen) {
+      if (is.call(node) && is.symbol(node[[1L]]) &&
+          identical(as.character(node[[1L]]), "c")) {
+        for (value in as.list(node)[-1L]) visit(value, context, seen)
+      } else {
+        visit(node, context, seen)
+      }
+    }
+
+    visit_limits <- function(axis, values, seen) {
+      context <- paste0("scale:", axis, "$limits")
+      add_feature(paste0("property:scale:", axis, ":limits"))
+      for (value in values) visit_flattened(value, context, seen)
+    }
+
+    visit_label <- function(label, value, seen) {
+      context <- paste0("label:", label)
+      add_feature(paste0("property:", context))
+      visit(value, context, seen)
+    }
+
+    visit_continuous_scale <- function(axis, arguments, seen) {
+      formal_names <- c(
+        "name", "breaks", "minor_breaks", "n.breaks", "labels", "limits",
+        "expand", "oob", "na.value", "transform", "trans", "guide",
+        "position", "sec.axis"
+      )
+
+      for (index in seq_along(arguments)) {
+        argument_name <- names(arguments)[[index]]
+        if (!nzchar(argument_name) && index <= length(formal_names)) {
+          argument_name <- formal_names[[index]]
+        }
+
+        if (identical(argument_name, "limits")) {
+          visit_limits(axis, list(arguments[[index]]), seen)
+        } else if (identical(argument_name, "name")) {
+          visit_label(axis, arguments[[index]], seen)
+        } else {
+          property <- if (nzchar(argument_name)) argument_name else paste0("arg", index)
+          context <- paste0("scale:", axis, "$", property)
+          add_feature(paste0("property:scale:", axis, ":", property))
+          visit(arguments[[index]], context, seen)
+        }
+      }
+    }
+
+    visit_labels <- function(arguments, seen) {
+      for (index in seq_along(arguments)) {
+        label <- names(arguments)[[index]]
+        if (!nzchar(label)) label <- paste0("arg", index)
+        visit_label(label, arguments[[index]], seen)
+      }
+    }
+
     visit <- function(node, context = "root", seen = character()) {
       if (is.null(node)) return(invisible(NULL))
 
@@ -1389,14 +1639,17 @@ local({
         if (!name %in% seen && !is.null(assignments[[name]])) {
           visit(assignments[[name]], context, c(seen, name))
         } else {
-          features <<- c(features, paste0("symbol:", context, ":", normalise_name(name)))
+          # Keep the symbol's structural role, but deliberately ignore its name.
+          # This makes equivalent code invariant to renamed datasets, columns,
+          # intermediate objects, and other user-defined variables.
+          add_feature(paste0("symbol:", context))
         }
         return(invisible(NULL))
       }
 
       if (is.atomic(node)) {
         value <- paste(deparse(node, width.cutoff = 500L), collapse = "")
-        features <<- c(features, paste0("value:", context, ":", value))
+        add_feature(paste0("value:", context, ":", value))
         return(invisible(NULL))
       }
 
@@ -1408,25 +1661,79 @@ local({
         normalise_name(paste(deparse(node[[1L]], width.cutoff = 500L), collapse = ""))
       }
 
-      transparent_calls <- c("(", "{", "<-", "=", "->", "+", "|>", "%>%")
-      arguments <- as.list(node)[-1L]
-      argument_names <- names(arguments)
-      if (is.null(argument_names)) argument_names <- rep("", length(arguments))
+      arguments <- get_call_arguments(node)
+
+      if (function_name %in% c("|>", "%>%") && length(arguments) >= 2L &&
+          is.call(arguments[[2L]])) {
+        right_call <- as.list(arguments[[2L]])
+        piped_call <- as.call(c(right_call[1L], list(arguments[[1L]]), right_call[-1L]))
+        visit(piped_call, context, seen)
+        return(invisible(NULL))
+      }
+
+      if (function_name %in% c("xlim", "ylim")) {
+        visit_limits(substr(function_name, 1L, 1L), arguments, seen)
+        return(invisible(NULL))
+      }
+
+      if (identical(function_name, "lims")) {
+        for (axis in intersect(c("x", "y"), names(arguments))) {
+          visit_limits(axis, list(arguments[[axis]]), seen)
+        }
+        return(invisible(NULL))
+      }
+
+      if (function_name %in% c("scale_x_continuous", "scale_y_continuous")) {
+        visit_continuous_scale(substr(function_name, 7L, 7L), arguments, seen)
+        return(invisible(NULL))
+      }
+
+      if (identical(function_name, "labs")) {
+        visit_labels(arguments, seen)
+        return(invisible(NULL))
+      }
+
+      if (function_name %in% c("xlab", "ylab") && length(arguments)) {
+        visit_label(substr(function_name, 1L, 1L), arguments[[1L]], seen)
+        return(invisible(NULL))
+      }
+
+      if (identical(function_name, "ggtitle")) {
+        title_labels <- c("title", "subtitle")
+        for (index in seq_along(arguments)) {
+          label <- names(arguments)[[index]]
+          if (!nzchar(label) && index <= length(title_labels)) label <- title_labels[[index]]
+          if (!nzchar(label)) label <- paste0("arg", index)
+          visit_label(label, arguments[[index]], seen)
+        }
+        return(invisible(NULL))
+      }
+
+      original_function_name <- function_name
+      if (identical(function_name, "aes_string")) function_name <- "aes"
+
+      transparent_calls <- c("(", "{", "<-", "=", "->", "+")
 
       if (!function_name %in% transparent_calls) {
-        features <<- c(features, paste0("call:", function_name))
+        add_feature(paste0("call:", function_name))
       }
 
       for (index in seq_along(arguments)) {
-        argument_name <- normalise_name(argument_names[[index]])
-        child_context <- function_name
+        argument_name <- names(arguments)[[index]]
+        child_context <- if (function_name %in% transparent_calls) context else function_name
         if (nzchar(argument_name)) {
           if (!function_name %in% transparent_calls) {
-            features <<- c(features, paste0("arg:", function_name, ":", argument_name))
+            add_feature(paste0("arg:", function_name, ":", argument_name))
           }
           child_context <- paste0(function_name, "$", argument_name)
         }
-        visit(arguments[[index]], child_context, seen)
+
+        if (identical(original_function_name, "aes_string") &&
+            is.character(arguments[[index]])) {
+          for (value in arguments[[index]]) add_feature(paste0("symbol:", child_context))
+        } else {
+          visit(arguments[[index]], child_context, seen)
+        }
       }
 
       invisible(NULL)
