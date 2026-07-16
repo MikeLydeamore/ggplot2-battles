@@ -110,7 +110,15 @@ body {
   font-weight: 600;
 }
 
-#similarity-score {
+.score-result {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+#similarity-score,
+#code-similarity-score {
   color: var(--battle-info);
   font-weight: 700;
 }

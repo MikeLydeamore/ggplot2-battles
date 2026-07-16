@@ -3,6 +3,8 @@ let shelter;
 let webR;
 let sessionEnv;
 let preRunCode = '';
+let challengeSourceCode = '';
+let challengePlotVariable = '';
 let preservedSessionNames = [];
 let currentChallengeId = '';
 let scriptTabs = [];
@@ -925,6 +927,8 @@ async function initializeChallenge(challengeSource) {
   }
 
   const options = extractChallengeOptions(challengeSource);
+  challengeSourceCode = challengeSource;
+  challengePlotVariable = options['plot-variable'] || '';
   preRunCode = options['prerun-code'] || '';
   preservedSessionNames = getDatasetObjectNames(options['dataset-name'] || '');
 
@@ -1242,7 +1246,13 @@ async function runAndCompare() {
   try {
     await cleanupSessionWorkspace();
     await renderUserPlot(scoredCode);
-    window.compareRenderedPlot?.({ code: scoredCode, source: 'full-script' });
+    const codeScore = await calculateCodeSimilarity(scoredCode);
+    renderCodeSimilarity(codeScore);
+    window.compareRenderedPlot?.({
+      code: scoredCode,
+      codeScore,
+      source: 'full-script'
+    });
     await refreshVariables();
   } catch (err) {
     console.error('Error running R code:', err);
@@ -1250,6 +1260,218 @@ async function runAndCompare() {
   } finally {
     setRunButtonReady(runButton);
   }
+}
+
+async function calculateCodeSimilarity(userCode) {
+  if (!challengeSourceCode) return null;
+
+  let capture;
+  try {
+    capture = await captureSessionR(getCodeSimilarityR(
+      userCode,
+      challengeSourceCode,
+      challengePlotVariable
+    ), {
+      captureStreams: true,
+      captureGraphics: false,
+      captureConditions: false
+    });
+
+    const output = getCaptureOutputText(capture);
+    const match = output.match(/GG_BATTLE_CODE_SCORE:([0-9]+(?:\.[0-9]+)?)/);
+    return match ? Number(match[1]) : null;
+  } catch (err) {
+    console.warn('Unable to calculate code similarity:', err);
+    return null;
+  } finally {
+    await destroyCaptureResult(capture);
+  }
+}
+
+function renderCodeSimilarity(score) {
+  const element = document.getElementById('code-similarity-score');
+  if (!element) return;
+
+  element.textContent = Number.isFinite(score)
+    ? `${score.toFixed(2)}%`
+    : 'N/A';
+}
+
+function getCodeSimilarityR(userCode, solutionCode, plotVariable) {
+  return `
+local({
+  user_code <- ${quoteRString(userCode)}
+  solution_code <- ${quoteRString(solutionCode)}
+  solution_plot_variable <- ${quoteRString(plotVariable)}
+
+  parse_code <- function(code) {
+    tryCatch(parse(text = code, keep.source = FALSE), error = function(error) NULL)
+  }
+
+  assignment_parts <- function(expression) {
+    if (!is.call(expression)) return(NULL)
+    operator <- as.character(expression[[1L]])
+
+    if (operator %in% c("<-", "=")) {
+      name <- expression[[2L]]
+      value <- expression[[3L]]
+    } else if (identical(operator, "->")) {
+      name <- expression[[3L]]
+      value <- expression[[2L]]
+    } else {
+      return(NULL)
+    }
+
+    if (!is.symbol(name)) return(NULL)
+    list(name = as.character(name), value = value)
+  }
+
+  make_assignments <- function(expressions) {
+    assignments <- list()
+    for (expression in expressions) {
+      parts <- assignment_parts(expression)
+      if (!is.null(parts)) assignments[[parts$name]] <- parts$value
+    }
+    assignments
+  }
+
+  contains_ggplot <- function(expression, assignments, seen = character()) {
+    if (is.symbol(expression)) {
+      name <- as.character(expression)
+      if (name %in% seen || is.null(assignments[[name]])) return(FALSE)
+      return(contains_ggplot(assignments[[name]], assignments, c(seen, name)))
+    }
+    if (!is.call(expression)) return(FALSE)
+
+    function_name <- if (is.symbol(expression[[1L]])) as.character(expression[[1L]]) else ""
+    if (function_name %in% c("ggplot", "qplot")) return(TRUE)
+
+    any(vapply(as.list(expression)[-1L], contains_ggplot, logical(1),
+      assignments = assignments, seen = seen))
+  }
+
+  find_plot_root <- function(expressions, assignments, requested_name = "") {
+    if (nzchar(requested_name) && !is.null(assignments[[requested_name]])) {
+      return(as.name(requested_name))
+    }
+
+    for (index in rev(seq_along(expressions))) {
+      expression <- expressions[[index]]
+      if (is.call(expression) && identical(as.character(expression[[1L]]), "print") &&
+          length(expression) >= 2L) {
+        return(expression[[2L]])
+      }
+
+      parts <- assignment_parts(expression)
+      if (!is.null(parts) && contains_ggplot(parts$value, assignments)) {
+        return(as.name(parts$name))
+      }
+
+      if (contains_ggplot(expression, assignments)) return(expression)
+    }
+
+    if (length(expressions)) expressions[[length(expressions)]] else NULL
+  }
+
+  normalise_name <- function(value) {
+    value <- sub("colour", "color", value, fixed = TRUE)
+    value
+  }
+
+  ast_features <- function(expression, assignments) {
+    features <- character()
+
+    visit <- function(node, context = "root", seen = character()) {
+      if (is.null(node)) return(invisible(NULL))
+
+      if (is.symbol(node)) {
+        name <- as.character(node)
+        if (!name %in% seen && !is.null(assignments[[name]])) {
+          visit(assignments[[name]], context, c(seen, name))
+        } else {
+          features <<- c(features, paste0("symbol:", context, ":", normalise_name(name)))
+        }
+        return(invisible(NULL))
+      }
+
+      if (is.atomic(node)) {
+        value <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+        features <<- c(features, paste0("value:", context, ":", value))
+        return(invisible(NULL))
+      }
+
+      if (!is.call(node)) return(invisible(NULL))
+
+      function_name <- if (is.symbol(node[[1L]])) {
+        normalise_name(as.character(node[[1L]]))
+      } else {
+        normalise_name(paste(deparse(node[[1L]], width.cutoff = 500L), collapse = ""))
+      }
+
+      transparent_calls <- c("(", "{", "<-", "=", "->", "+", "|>", "%>%")
+      arguments <- as.list(node)[-1L]
+      argument_names <- names(arguments)
+      if (is.null(argument_names)) argument_names <- rep("", length(arguments))
+
+      if (!function_name %in% transparent_calls) {
+        features <<- c(features, paste0("call:", function_name))
+      }
+
+      for (index in seq_along(arguments)) {
+        argument_name <- normalise_name(argument_names[[index]])
+        child_context <- function_name
+        if (nzchar(argument_name)) {
+          if (!function_name %in% transparent_calls) {
+            features <<- c(features, paste0("arg:", function_name, ":", argument_name))
+          }
+          child_context <- paste0(function_name, "$", argument_name)
+        }
+        visit(arguments[[index]], child_context, seen)
+      }
+
+      invisible(NULL)
+    }
+
+    visit(expression)
+    features
+  }
+
+  score_features <- function(user_features, solution_features) {
+    if (!length(user_features) && !length(solution_features)) return(100)
+    if (!length(user_features) || !length(solution_features)) return(0)
+
+    user_counts <- table(user_features)
+    solution_counts <- table(solution_features)
+    shared_names <- intersect(names(user_counts), names(solution_counts))
+    overlap <- sum(pmin(user_counts[shared_names], solution_counts[shared_names]))
+    200 * overlap / (length(user_features) + length(solution_features))
+  }
+
+  user_expressions <- parse_code(user_code)
+  solution_expressions <- parse_code(solution_code)
+
+  if (is.null(user_expressions) || is.null(solution_expressions)) {
+    score <- NA_real_
+  } else {
+    user_assignments <- make_assignments(user_expressions)
+    solution_assignments <- make_assignments(solution_expressions)
+    user_root <- find_plot_root(user_expressions, user_assignments)
+    solution_root <- find_plot_root(
+      solution_expressions,
+      solution_assignments,
+      solution_plot_variable
+    )
+    score <- score_features(
+      ast_features(user_root, user_assignments),
+      ast_features(solution_root, solution_assignments)
+    )
+  }
+
+  if (is.finite(score)) {
+    cat(sprintf("GG_BATTLE_CODE_SCORE:%.2f", score))
+  }
+})
+`;
 }
 
 function markScoreStale(reason) {

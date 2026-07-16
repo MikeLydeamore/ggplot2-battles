@@ -11,7 +11,7 @@ Visit **[ggplotbattles.dev](https://ggplotbattles.dev)** to start battling!
 ggplot battles presents you with target plots created with ggplot2. Your mission: recreate them as closely as possible using R code directly in your browser. Each challenge includes:
 
 - **Real datasets** including penguins, mpg, and more
-- **Instant feedback** with similarity scoring  
+- **Instant feedback** with separate pixel and code similarity scores
 - **Browser-based R environment** powered by [webR](https://docs.r-wasm.org/webr/latest/)
 - **Multiple difficulty levels** for all skill ranges
 
@@ -78,7 +78,7 @@ This will:
 - **Frontend**: HTML, CSS, JavaScript with Bootstrap
 - **R Environment**: [webR](https://docs.r-wasm.org/webr/latest/) for browser-based R
 - **Plotting**: ggplot2 with various extension packages
-- **Comparison**: Canvas-based image similarity scoring
+- **Comparison**: Canvas-based pixel similarity plus syntax-tree overlap scoring for plot code
 - **Leaderboard**: Vercel API route backed by Supabase Postgres
 
 ## 🎨 Local Development

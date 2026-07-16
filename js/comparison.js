@@ -456,7 +456,7 @@ function getCurrentChallengeId() {
 
 function dispatchScore(score, bestScore, detail = {}) {
   document.dispatchEvent(new CustomEvent('battle-score-updated', {
-    detail: { ...detail, score, bestScore }
+    detail: { ...detail, score, pixelScore: score, bestScore }
   }));
 }
 

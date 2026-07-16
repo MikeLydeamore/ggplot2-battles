@@ -26,7 +26,7 @@ set.seed(42)
 p <- ggplot(spreads, aes(x = Group, y = Value, fill = Group)) +
     # Violin shows full distribution
     geom_violin(trim = FALSE, alpha = 0.6, linewidth = 0.3, color = "gray30") +
-    # Boxplot inside (hide outliers so they don't overplot jitter)
+    #  inside (hide outliers so they don't overplot jitter)
     geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.9, color = "gray15") +
     # Optional: overlay a small random jitter of raw points
     geom_jitter(width = 0.07, alpha = 0.25, size = 1.2) +
