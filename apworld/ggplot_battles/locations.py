@@ -5,11 +5,11 @@ SCORE_RANGE = range(80, 101)
 
 
 def structure_location_name(trial: int) -> str:
-    return f"Trial {trial}: Structure"
+    return f"Level {trial}: Structure"
 
 
 def score_location_name(trial: int, score: int) -> str:
-    return f"Trial {trial}: {score}% Match"
+    return f"Level {trial}: {score}% Match"
 
 
 def structure_location_id(trial: int) -> int:

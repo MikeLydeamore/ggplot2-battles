@@ -47,9 +47,9 @@ class GGPlotBattlesWorld(World):
 
         for trial in self.slot_definition["trials"]:
             trial_number = int(trial["trialId"])
-            region = Region(f"Trial {trial_number}", self.player, self.multiworld)
+            region = Region(f"Level {trial_number}", self.player, self.multiworld)
             self.multiworld.regions.append(region)
-            menu.connect(region, f"Open Trial {trial_number}")
+            menu.connect(region, f"Open Level {trial_number}")
             structure_name = structure_location_name(trial_number)
             region.locations.append(GGPlotLocation(
                 self.player,
@@ -97,7 +97,7 @@ class GGPlotBattlesWorld(World):
     def set_rules(self) -> None:
         for trial in self.slot_definition["trials"]:
             requirements = tuple(trial["requiredItems"])
-            region = self.multiworld.get_region(f"Trial {trial['trialId']}", self.player)
+            region = self.multiworld.get_region(f"Level {trial['trialId']}", self.player)
             entrance = region.entrances[0]
             set_rule(entrance, lambda state, requirements=requirements: all(
                 state.has(item, self.player) for item in requirements

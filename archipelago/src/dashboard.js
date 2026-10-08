@@ -45,7 +45,7 @@ form.addEventListener('submit', async event => {
 client.addEventListener('connected', () => {
   status.textContent = 'Connected';
   status.className = 'status-pill is-online';
-  message.textContent = `Connected as ${slotInput.value}. Your generated trials are ready.`;
+  message.textContent = `Connected as ${slotInput.value}. Your generated levels are ready.`;
   runContent.hidden = false;
   addActivity('Connected and synchronized with the room.');
   postBridgeState();
@@ -129,7 +129,7 @@ function createTrialCard(spec, owned, checked) {
   card.className = `trial-card${missing.length ? ' is-locked' : ''}`;
   const heading = document.createElement('div');
   heading.className = 'trial-meta';
-  heading.innerHTML = `<div><p class="eyebrow">Trial ${spec.trialId}</p><h3>${escapeHtml(spec.brief.title)}</h3></div><span class="inventory-chip">${escapeHtml(spec.technique)}</span>`;
+  heading.innerHTML = `<div><p class="eyebrow">Level ${spec.trialId}</p><h3>${escapeHtml(levelTitle(spec.brief.title))}</h3></div><span class="inventory-chip">${escapeHtml(spec.technique)}</span>`;
   const description = document.createElement('p');
   description.textContent = `${spec.dataset.rows} synthetic observations · ${spec.plot.theme.replace('theme_', '')} theme`;
   const milestones = document.createElement('div');
@@ -150,7 +150,7 @@ function createTrialCard(spec, owned, checked) {
     const link = document.createElement('a');
     link.className = 'trial-link';
     link.href = `/battle/?trial=${spec.trialId}`;
-    link.textContent = 'Open trial';
+    link.textContent = 'Open level';
     card.appendChild(link);
   }
   return card;
@@ -258,4 +258,8 @@ function escapeHtml(value) {
   const element = document.createElement('span');
   element.textContent = value;
   return element.innerHTML;
+}
+
+function levelTitle(value) {
+  return String(value).replace(/^Trial\b/, 'Level');
 }

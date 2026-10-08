@@ -30,16 +30,17 @@ initializeBattle();
 
 function initializeBattle() {
   if (!slotData) {
-    showFatal('No generated room data is available. Return to the trial dashboard and connect first.');
+    showFatal('No generated room data is available. Return to the level dashboard and connect first.');
     return;
   }
   const spec = trialId === 'final'
     ? slotData.final
     : slotData.trials.find(value => String(value.trialId) === trialId);
   if (!spec) {
-    showFatal(`Trial ${trialId} does not exist in this seed.`);
+    showFatal(`Level ${trialId} does not exist in this seed.`);
     return;
   }
+    normalizeLevelTitles(spec);
     currentSpec = spec;
     setupCheckDrawer();
     const receivedNames = ArchipelagoClient.savedItems()
@@ -50,7 +51,7 @@ function initializeBattle() {
       ? finalMissingRequirements(receivedNames)
       : spec.requiredItems.filter(item => !receivedNames.includes(item));
     if (missingRequirements.length) {
-      showFatal(`This trial is still locked. Missing: ${missingRequirements.join(', ')}.`);
+      showFatal(`This level is still locked. Missing: ${missingRequirements.join(', ')}.`);
       return;
     }
     applyUtilityGates(receivedNames);
@@ -368,6 +369,12 @@ function finalMissingRequirements(items) {
   if (base < 4) missing.push(`${4 - base} more base technique${base === 3 ? '' : 's'}`);
   if (modifiers < 3) missing.push(`${3 - modifiers} more modifier${modifiers === 2 ? '' : 's'}`);
   return missing;
+}
+
+function normalizeLevelTitles(spec) {
+  if (spec?.brief?.title) spec.brief.title = spec.brief.title.replace(/^Trial\b/, 'Level');
+  if (spec?.plot?.title) spec.plot.title = spec.plot.title.replace(/^Trial\b/, 'Level');
+  spec?.panels?.forEach(normalizeLevelTitles);
 }
 
 async function startEditor() {

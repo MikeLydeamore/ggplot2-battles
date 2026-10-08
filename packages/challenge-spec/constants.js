@@ -2,7 +2,7 @@ export const GAME_NAME = 'ggplot Battles';
 export const SCHEMA_VERSION = 1;
 export const GENERATOR_VERSION = 1;
 export const SLOT_DATA_VERSION = 2;
-export const WEB_APP_VERSION = '0.3.2';
+export const WEB_APP_VERSION = '0.3.3';
 export const ITEM_BASE_ID = 4970000;
 export const LOCATION_BASE_ID = 4971000;
 
@@ -25,8 +25,8 @@ export const ITEM_NAMES_BY_ID = Object.fromEntries(Object.entries(ITEM_IDS).map(
 
 export function locationName(trial, milestone) {
   return milestone === 'Structure'
-    ? `Trial ${trial}: Structure`
-    : `Trial ${trial}: ${Number(milestone)}% Match`;
+    ? `Level ${trial}: Structure`
+    : `Level ${trial}: ${Number(milestone)}% Match`;
 }
 
 export function locationId(trial, milestone) {

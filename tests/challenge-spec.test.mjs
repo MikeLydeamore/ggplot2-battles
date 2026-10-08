@@ -30,8 +30,8 @@ test('stable PRNG has a fixed sequence', () => {
 });
 
 test('score location ids are stable for every percentage', () => {
-  assert.equal(locationName(3, 'Structure'), 'Trial 3: Structure');
-  assert.equal(locationName(3, 95), 'Trial 3: 95% Match');
+  assert.equal(locationName(3, 'Structure'), 'Level 3: Structure');
+  assert.equal(locationName(3, 95), 'Level 3: 95% Match');
   assert.equal(locationId(3, 'Structure'), 4971301);
   assert.equal(locationId(3, 95), 4971395);
 });

@@ -12,17 +12,17 @@ python -m http.server 8000 --directory dist
 
 The client needs a generated Archipelago room containing a `ggplot Battles` slot. Connection details are saved locally, while the room password is retained only for the browser session. Received items and checked locations are synchronized from the Archipelago server.
 
-The dashboard is a persistent application shell and owns the room's WebSocket connection. Trial links update browser history and open the isolated webR workspace inside that shell; the workspace reports checks through a same-origin bridge instead of opening another Archipelago connection. Moving between the dashboard and trials therefore does not produce server disconnect/reconnect events. Reloading or closing the top-level tab still reconnects normally.
+The dashboard is a persistent application shell and owns the room's WebSocket connection. Level links update browser history and open the isolated webR workspace inside that shell; the workspace reports checks through a same-origin bridge instead of opening another Archipelago connection. Moving between the dashboard and levels therefore does not produce server disconnect/reconnect events. Reloading or closing the top-level tab still reconnects normally.
 
-During a trial, the **Checks** button opens a flyout showing the current code-accuracy result, explicit pixel/code requirements for every check, pending and server-confirmed checks, and a session activity log. It intentionally does not reveal the required layers or modifiers. Required colours are displayed as a copy-ready R vector.
+During a level, the **Checks** button opens a flyout showing the current code-accuracy result, explicit pixel/code requirements for every check, pending and server-confirmed checks, and a session activity log. It intentionally does not reveal the required layers or modifiers. Required colours are displayed as a copy-ready R vector.
 
 ## Checks and unlocks
 
-Each trial awards one Structure check and score checks from 80% through 100%. The `score_check_interval` YAML option accepts `every_1_percent`, `every_2_percent`, `every_5_percent`, or `every_10_percent`; the default 5% interval produces 48 checks across eight trials.
+Each level awards one Structure check and score checks from 80% through 100%. The `score_check_interval` YAML option accepts `every_1_percent`, `every_2_percent`, `every_5_percent`, or `every_10_percent`; the default 5% interval produces 48 checks across eight levels.
 
 Checks contain shuffled Archipelago items, so a particular check does not always unlock the same thing. The ggplot Battles item pool contains:
 
-- Five base techniques (`Points`, `Distributions`, `Categorical`, `Lines`, and `Intervals`) and five modifiers (`Faceting`, `Scale Transformations`, `Coordinate Systems`, `Annotations`, and `Composition`). These open trials whose generated specification requires them. One opening technique is granted at the start.
+- Five base techniques (`Points`, `Distributions`, `Categorical`, `Lines`, and `Intervals`) and five modifiers (`Faceting`, `Scale Transformations`, `Coordinate Systems`, `Annotations`, and `Composition`). These open levels whose generated specification requires them. One opening technique is granted at the start.
 - `Exhibition Invitation`, which helps unlock the final exhibition. The final also requires Composition, four base techniques, and three other modifiers.
 - `Diff Lens`, `Data Inspector`, and `Starter Scaffold`, which expose their corresponding editor aids.
 - Two progressive `Hint Book` items. The first reveals the plot technique; the second also reveals its principal layers and modifiers.

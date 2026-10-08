@@ -134,7 +134,7 @@ def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) 
     )
     annotation = f"Seed {seed & 0xFFFF:04X}" if "Annotations" in modifiers else None
     palette = list(random.pick(PALETTES))
-    title = f"Trial {trial_id}: {technique} study"
+    title = f"Level {trial_id}: {technique} study"
     description = "Recreate this procedurally generated target. Exact labels and colours are listed; the construction is yours to infer."
     plot = {
         "mapping": mapping,
@@ -193,7 +193,7 @@ def generate_slot(seed: int) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generator_version": GENERATOR_VERSION,
         "web_app_min_version": "0.2.0",
-        "world_version": "0.2.0",
+        "world_version": "0.3.0",
         "opening_technique": opening,
         "trials": trials,
         "final": {
