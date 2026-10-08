@@ -18,7 +18,13 @@ await cp(resolve(root, 'logo.png'), resolve(output, 'logo.png'));
 await cp(resolve(root, 'favicon.ico'), resolve(output, 'favicon.ico'));
 
 const viewer = await readFile(resolve(root, 'js/editor-viewer.html'), 'utf8');
-const editorOnly = viewer.split('<div class="leaderboard-wrapper">')[0].trimEnd();
+const editorOnly = viewer
+  .split('<div class="leaderboard-wrapper">')[0]
+  .replace(/\s*<span\b[^>]*\bid="score-state-status"[^>]*>[\s\S]*?<\/span>/, '')
+  .trimEnd();
+if (editorOnly.includes('score-state-status')) {
+  throw new Error('The Archipelago editor build still contains the leaderboard score-readiness chip.');
+}
 await writeFile(resolve(output, 'js/editor-viewer.html'), `${editorOnly}\n`, 'utf8');
 
 console.log(`Built Archipelago client in ${output}`);
