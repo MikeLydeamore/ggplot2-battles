@@ -6,12 +6,31 @@
   "required": ["schemaVersion", "generatorVersion", "trialId", "seed", "technique", "dataset", "plot", "requiredItems", "predicates", "thresholds", "brief"],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "generatorVersion": { "const": 1 },
+    "generatorVersion": { "const": 2 },
     "trialId": { "type": ["integer", "string"] },
     "seed": { "type": "integer", "minimum": 1 },
     "technique": { "enum": ["Points", "Distributions", "Categorical", "Lines", "Intervals", "Composition"] },
     "dataset": { "type": "object", "required": ["kind", "rows", "name"] },
-    "plot": { "type": "object", "required": ["layers", "theme", "palette"] },
+    "plot": {
+      "type": "object",
+      "required": ["layers", "theme", "palette"],
+      "properties": {
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["geom", "params"],
+            "properties": {
+              "geom": { "enum": ["point", "smooth", "histogram", "density", "col", "line", "ribbon", "errorbar", "linerange"] },
+              "params": { "type": "object" }
+            }
+          }
+        },
+        "facetParams": { "type": "object" },
+        "themeParams": { "type": "object" }
+      }
+    },
     "requiredItems": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "predicates": { "type": "array", "minItems": 1 },
     "thresholds": {

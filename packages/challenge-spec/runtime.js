@@ -1,5 +1,6 @@
 import { GENERATOR_VERSION, SCHEMA_VERSION } from './constants.js';
 import { StableRandom } from './prng.js';
+import { FACET_PARAMETER_DOMAINS, LAYER_PARAMETER_DOMAINS, THEME_PARAMETER_DOMAINS } from './registry.js';
 
 const escapeR = value => JSON.stringify(String(value));
 const numberR = value => Number(value.toFixed(6)).toString();
@@ -12,9 +13,35 @@ export function validateChallengeSpec(spec) {
   if (spec?.generatorVersion !== GENERATOR_VERSION) errors.push(`Unsupported generator version ${spec?.generatorVersion}.`);
   if (!spec?.dataset?.kind || !spec?.dataset?.name) errors.push('Dataset kind and name are required.');
   if (!Array.isArray(spec?.plot?.layers) || !spec.plot.layers.length) errors.push('At least one plot layer is required.');
+  for (const [index, layer] of (spec?.plot?.layers || []).entries()) {
+    const domains = LAYER_PARAMETER_DOMAINS[layer?.geom];
+    if (!domains) {
+      errors.push(`Layer ${index + 1} uses unsupported geom ${layer?.geom}.`);
+    } else {
+      validateParameters(layer.params, domains, `Layer ${index + 1}`, errors);
+    }
+  }
+  if (spec?.plot?.facet) validateParameters(spec.plot.facetParams, FACET_PARAMETER_DOMAINS, 'Facet', errors);
+  validateParameters(spec?.plot?.themeParams, THEME_PARAMETER_DOMAINS, 'Theme', errors);
   if (!Array.isArray(spec?.predicates) || !spec.predicates.length) errors.push('Structural predicates are required.');
   if (!(spec?.thresholds?.match < spec?.thresholds?.mastery)) errors.push('Mastery threshold must exceed match threshold.');
   return { valid: errors.length === 0, errors };
+}
+
+function validateParameters(params, domains, label, errors) {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    errors.push(`${label} parameters are required.`);
+    return;
+  }
+  const expected = Object.keys(domains);
+  const actual = Object.keys(params);
+  for (const name of expected) {
+    if (!Object.hasOwn(params, name)) errors.push(`${label} is missing parameter ${name}.`);
+    else if (!domains[name].includes(params[name])) errors.push(`${label} parameter ${name} is outside its supported domain.`);
+  }
+  for (const name of actual) {
+    if (!Object.hasOwn(domains, name)) errors.push(`${label} uses unsupported parameter ${name}.`);
+  }
 }
 
 export function materializeDataset(spec) {
@@ -71,34 +98,55 @@ function aestheticsR(mapping) {
   return Object.entries(mapping || {}).map(([key, value]) => `${key} = ${value}`).join(', ');
 }
 
-function layerR(layer, palette) {
+function valueR(value) {
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'number') return numberR(value);
+  return escapeR(value);
+}
+
+function argumentsR(params, defaults = {}) {
+  return Object.entries({ ...defaults, ...(params || {}) })
+    .map(([name, value]) => `${name} = ${valueR(value)}`)
+    .join(', ');
+}
+
+function layerR(layer) {
   const params = layer.params || {};
-  if (layer.geom === 'point') return `geom_point(${params.size ? `size = ${params.size}` : ''})`;
-  if (layer.geom === 'smooth') return 'geom_smooth(method = "lm", se = FALSE, linewidth = 0.7)';
-  if (layer.geom === 'histogram') return `geom_histogram(bins = ${params.bins || 18}, colour = "white", alpha = 0.78)`;
-  if (layer.geom === 'density') return 'geom_density(alpha = 0.35, linewidth = 0.8)';
-  if (layer.geom === 'col') return 'geom_col()';
-  if (layer.geom === 'line') return 'geom_line(linewidth = 0.8)';
-  if (layer.geom === 'ribbon') return 'geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, colour = NA)';
-  if (layer.geom === 'errorbar') return 'geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.15)';
+  if (layer.geom === 'point') return `geom_point(${argumentsR(params)})`;
+  if (layer.geom === 'smooth') return `geom_smooth(${argumentsR(params, { method: 'lm', se: false, linewidth: 0.7 })})`;
+  if (layer.geom === 'histogram') return `geom_histogram(${argumentsR(params, { bins: 18, colour: 'white', alpha: 0.78 })})`;
+  if (layer.geom === 'density') return `geom_density(${argumentsR(params, { alpha: 0.35, linewidth: 0.8 })})`;
+  if (layer.geom === 'col') return `geom_col(${argumentsR(params)})`;
+  if (layer.geom === 'line') return `geom_line(${argumentsR(params, { linewidth: 0.8 })})`;
+  if (layer.geom === 'ribbon') return `geom_ribbon(aes(ymin = lower, ymax = upper), ${argumentsR(params, { alpha: 0.18, colour: 'NA' }).replace('colour = "NA"', 'colour = NA')})`;
+  if (layer.geom === 'errorbar') return `geom_errorbar(aes(ymin = lower, ymax = upper), ${argumentsR(params, { width: 0.15 })})`;
+  if (layer.geom === 'linerange') return `geom_linerange(aes(ymin = lower, ymax = upper), ${argumentsR(params)})`;
   throw new Error(`Unsupported geom: ${layer.geom}`);
 }
 
 export function compilePlotR(spec, variable = 'p') {
   const plot = spec.plot;
   const parts = [`ggplot(${spec.dataset.name}, aes(${aestheticsR(plot.mapping)}))`];
-  plot.layers.forEach(layer => parts.push(layerR(layer, plot.palette)));
+  plot.layers.forEach(layer => parts.push(layerR(layer)));
   if (plot.mapping?.colour || plot.mapping?.fill) {
     if (plot.mapping.colour) parts.push(`scale_colour_manual(values = ${vectorR(plot.palette)})`);
     if (plot.mapping.fill) parts.push(`scale_fill_manual(values = ${vectorR(plot.palette)})`);
   }
-  if (plot.facet) parts.push(`facet_wrap(~${plot.facet})`);
+  if (plot.facet) {
+    const facetArgs = argumentsR(plot.facetParams);
+    parts.push(`facet_wrap(~${plot.facet}${facetArgs ? `, ${facetArgs}` : ''})`);
+  }
   if (plot.scale === 'log10') parts.push(`scale_y_log10()`);
   if (plot.scale === 'reverse') parts.push(`scale_y_reverse()`);
   if (plot.coordinate === 'flip') parts.push('coord_flip()');
   if (plot.coordinate === 'polar') parts.push('coord_polar()');
   if (plot.annotation) parts.push(`annotate("text", x = Inf, y = Inf, label = ${escapeR(plot.annotation)}, hjust = 1.1, vjust = 1.5)`);
-  parts.push(`${plot.theme}()`);
+  const themeArgs = { ...(plot.themeParams || {}) };
+  if (Object.hasOwn(themeArgs, 'baseSize')) {
+    themeArgs.base_size = themeArgs.baseSize;
+    delete themeArgs.baseSize;
+  }
+  parts.push(`${plot.theme}(${argumentsR(themeArgs)})`);
   parts.push(`labs(title = ${escapeR(plot.title)}, x = ${escapeR(plot.xLabel)}, y = ${escapeR(plot.yLabel)})`);
   return `${variable} <- ${parts.join(' +\n  ')}`;
 }

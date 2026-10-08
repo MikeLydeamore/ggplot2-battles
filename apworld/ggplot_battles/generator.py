@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 SCHEMA_VERSION = 1
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 BASE_TECHNIQUES = ("Points", "Distributions", "Categorical", "Lines", "Intervals")
 MODIFIERS = ("Faceting", "Scale Transformations", "Coordinate Systems", "Annotations", "Composition")
 PALETTES = (
@@ -16,6 +16,47 @@ PALETTES = (
     ("#2a9d8f", "#e76f51", "#e9c46a"),
 )
 THEMES = ("theme_minimal", "theme_bw", "theme_classic")
+LAYER_PARAMETER_DOMAINS: dict[str, dict[str, tuple[Any, ...]]] = {
+    "point": {
+        "size": (1.6, 2.1, 2.7, 3.2),
+        "alpha": (0.65, 0.8, 1.0),
+        "shape": (16, 17, 19),
+    },
+    "smooth": {
+        "method": ("lm", "loess"),
+        "se": (False, True),
+        "linewidth": (0.6, 0.8, 1.0),
+    },
+    "histogram": {
+        "bins": (12, 18, 24, 30),
+        "alpha": (0.58, 0.74, 0.9),
+        "boundary": (0.0, 0.25, 0.5),
+    },
+    "density": {
+        "adjust": (0.7, 1.0, 1.3),
+        "alpha": (0.25, 0.4, 0.55),
+        "linewidth": (0.6, 0.8, 1.0),
+    },
+    "col": {
+        "width": (0.58, 0.72, 0.86),
+        "alpha": (0.7, 0.85, 1.0),
+    },
+    "line": {
+        "linewidth": (0.6, 0.85, 1.1),
+        "linetype": ("solid", "dashed", "dotdash"),
+    },
+    "ribbon": {"alpha": (0.12, 0.2, 0.3)},
+    "errorbar": {
+        "width": (0.1, 0.18, 0.28),
+        "linewidth": (0.5, 0.7, 0.9),
+    },
+    "linerange": {"linewidth": (0.6, 0.85, 1.1)},
+}
+FACET_PARAMETER_DOMAINS = {
+    "ncol": (1, 2, 3),
+    "scales": ("fixed", "free_y"),
+}
+THEME_PARAMETER_DOMAINS = {"baseSize": (10, 11, 12, 13)}
 
 
 class StableRandom:
@@ -48,7 +89,7 @@ class StableRandom:
 class TechniqueTemplate:
     dataset_kind: str
     mapping: dict[str, str]
-    layers: tuple[dict[str, Any], ...]
+    geoms: tuple[str, ...]
     schema: str
     x_label: str
     y_label: str
@@ -57,26 +98,34 @@ class TechniqueTemplate:
 TEMPLATES = {
     "Points": TechniqueTemplate(
         "correlated", {"x": "x", "y": "y", "colour": "group"},
-        ({"geom": "point", "params": {"size": 2}},), "x: numeric, y: numeric, group: category", "Predictor", "Response"
+        ("point",), "x: numeric, y: numeric, group: category", "Predictor", "Response"
     ),
     "Distributions": TechniqueTemplate(
         "distributions", {"x": "value", "fill": "group"},
-        ({"geom": "histogram", "params": {"bins": 18}},), "value: numeric, group: category", "Observed value", "Count"
+        ("histogram",), "value: numeric, group: category", "Observed value", "Count"
     ),
     "Categorical": TechniqueTemplate(
         "categorical", {"x": "category", "y": "value", "fill": "group"},
-        ({"geom": "col", "params": {}},), "category: category, value: numeric, group: category", "Category", "Value"
+        ("col",), "category: category, value: numeric, group: category", "Category", "Value"
     ),
     "Lines": TechniqueTemplate(
         "timeseries", {"x": "time", "y": "value", "colour": "group", "group": "group"},
-        ({"geom": "line", "params": {}},), "time: integer, value/lower/upper: numeric, group: category", "Time", "Measurement"
+        ("line",), "time: integer, value/lower/upper: numeric, group: category", "Time", "Measurement"
     ),
     "Intervals": TechniqueTemplate(
         "intervals", {"x": "label", "y": "estimate", "colour": "group"},
-        ({"geom": "point", "params": {"size": 2}}, {"geom": "errorbar", "params": {}}),
+        ("point", "errorbar"),
         "label: category, estimate/lower/upper: numeric, group: category", "Estimate", "Effect"
     ),
 }
+
+
+def _sample_params(random: StableRandom, geom: str) -> dict[str, Any]:
+    """Choose one curated value for every supported parameter of a geom."""
+    return {
+        name: random.pick(values)
+        for name, values in LAYER_PARAMETER_DOMAINS.get(geom, {}).items()
+    }
 
 
 def score_thresholds(interval: int) -> list[int]:
@@ -107,13 +156,22 @@ def _predicates(technique: str, modifiers: list[str], layers: list[dict[str, Any
 def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) -> dict[str, Any]:
     random = StableRandom(seed)
     template = TEMPLATES[technique]
-    layers = [dict(layer) for layer in template.layers]
+    geoms = list(template.geoms)
     if technique == "Points" and modifiers and random.integer(0, 1):
-        layers.append({"geom": "smooth", "params": {}})
+        geoms.append("smooth")
     if technique == "Distributions" and modifiers and random.integer(0, 1):
-        layers = [{"geom": "density", "params": {}}]
+        geoms = ["density"]
     if technique == "Lines" and modifiers:
-        layers.insert(0, {"geom": "ribbon", "params": {}})
+        geoms.insert(0, "ribbon")
+        if random.integer(0, 1):
+            geoms.append("point")
+    if technique == "Intervals" and random.integer(0, 1):
+        geoms[1] = "linerange"
+
+    layers = [
+        {"geom": geom, "params": _sample_params(random, geom)}
+        for geom in geoms
+    ]
 
     dataset: dict[str, Any] = {
         "kind": template.dataset_kind,
@@ -127,6 +185,10 @@ def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) 
     }
     mapping = dict(template.mapping)
     facet = "group" if "Faceting" in modifiers else None
+    facet_params = ({
+        name: random.pick(values)
+        for name, values in FACET_PARAMETER_DOMAINS.items()
+    } if facet else {})
     scale = (random.pick(("log10", "reverse")) if technique == "Categorical" else "reverse") \
         if "Scale Transformations" in modifiers else None
     coordinate = random.pick(("flip", "polar")) if "Coordinate Systems" in modifiers and technique == "Categorical" else (
@@ -140,10 +202,15 @@ def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) 
         "mapping": mapping,
         "layers": layers,
         "facet": facet,
+        "facetParams": facet_params,
         "scale": scale,
         "coordinate": coordinate,
         "annotation": annotation,
         "theme": random.pick(THEMES),
+        "themeParams": {
+            name: random.pick(values)
+            for name, values in THEME_PARAMETER_DOMAINS.items()
+        },
         "palette": palette,
         "title": title,
         "xLabel": template.x_label,
@@ -193,7 +260,7 @@ def generate_slot(seed: int) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generator_version": GENERATOR_VERSION,
         "web_app_min_version": "0.2.0",
-        "world_version": "0.3.0",
+        "world_version": "0.4.0",
         "opening_technique": opening,
         "trials": trials,
         "final": {

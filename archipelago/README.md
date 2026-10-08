@@ -14,6 +14,8 @@ The client needs a generated Archipelago room containing a `ggplot Battles` slot
 
 The dashboard is a persistent application shell and owns the room's WebSocket connection. Level links update browser history and open the isolated webR workspace inside that shell; the workspace reports checks through a same-origin bridge instead of opening another Archipelago connection. Moving between the dashboard and levels therefore does not produce server disconnect/reconnect events. Reloading or closing the top-level tab still reconnects normally.
 
+Generated plots sample from curated, deterministic parameter domains as well as choosing their layer composition. These domains vary point size, alpha and shape; smoothing; histogram and density settings; column width; line style; ribbon and interval appearance; facet layout; and theme sizing. Interval levels can use error bars or lineranges, and line levels can add point overlays. The bounded choices keep targets varied while remaining inferable and reproducible from a seed.
+
 During a level, the **Checks** button opens a flyout showing the current code-accuracy result, explicit pixel/code requirements for every check, pending and server-confirmed checks, and a session activity log. It intentionally does not reveal the required layers or modifiers. Required colours are displayed as a copy-ready R vector.
 
 ## Checks and unlocks

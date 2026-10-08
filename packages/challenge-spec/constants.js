@@ -1,8 +1,8 @@
 export const GAME_NAME = 'ggplot Battles';
 export const SCHEMA_VERSION = 1;
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
 export const SLOT_DATA_VERSION = 2;
-export const WEB_APP_VERSION = '0.3.3';
+export const WEB_APP_VERSION = '0.4.0';
 export const ITEM_BASE_ID = 4970000;
 export const LOCATION_BASE_ID = 4971000;
 

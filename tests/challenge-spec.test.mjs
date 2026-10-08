@@ -1,21 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  StableRandom, compileChallengeSource, locationId, locationName, materializeDataset, validateChallengeSpec
+  StableRandom, compileChallengeSource, compilePlotR, locationId, locationName, materializeDataset, validateChallengeSpec
 } from '../packages/challenge-spec/index.js';
 
 const SPEC = {
   schemaVersion: 1,
-  generatorVersion: 1,
+  generatorVersion: 2,
   trialId: 1,
   seed: 123456,
   technique: 'Points',
   dataset: { kind: 'correlated', name: 'trial_1_data', rows: 12, groups: ['A', 'B'], slope: 1.2 },
   plot: {
     mapping: { x: 'x', y: 'y', colour: 'group' },
-    layers: [{ geom: 'point', params: { size: 2 } }],
+    layers: [{ geom: 'point', params: { size: 2.1, alpha: 0.8, shape: 16 } }],
     facet: null, scale: null, coordinate: null, annotation: null,
-    theme: 'theme_minimal', palette: ['#0dcaf0', '#ff6b6b'],
+    theme: 'theme_minimal', themeParams: { baseSize: 11 }, palette: ['#0dcaf0', '#ff6b6b'],
     title: 'Generated points', xLabel: 'Predictor', yLabel: 'Response'
   },
   requiredItems: ['Points'],
@@ -53,6 +53,13 @@ test('valid spec compiles to a self-contained R challenge', () => {
   assert.match(source, /print\(p\)/);
 });
 
+test('spec validation rejects values outside the bounded domains', () => {
+  const invalid = structuredClone(SPEC);
+  invalid.plot.layers[0].params.size = 99;
+  assert.equal(validateChallengeSpec(invalid).valid, false);
+  assert.match(validateChallengeSpec(invalid).errors.join(' '), /outside its supported domain/);
+});
+
 test('all five synthetic dataset generators are deterministic and finite', () => {
   const variants = [
     { kind: 'correlated', rows: 20, slope: 1.1 },
@@ -73,4 +80,36 @@ test('all five synthetic dataset generators are deterministic and finite', () =>
       typeof value !== 'number' || Number.isFinite(value)
     ))));
   }
+});
+
+test('bounded layer, facet, and theme parameters compile to R', () => {
+  const spec = {
+    ...SPEC,
+    plot: {
+      ...SPEC.plot,
+      layers: [
+        { geom: 'point', params: { size: 2.7, alpha: 0.8, shape: 17 } },
+        { geom: 'smooth', params: { method: 'loess', se: true, linewidth: 1 } }
+      ],
+      facet: 'group',
+      facetParams: { ncol: 2, scales: 'free_y' },
+      themeParams: { baseSize: 13 }
+    }
+  };
+  const source = compilePlotR(spec);
+  assert.match(source, /geom_point\(size = 2\.7, alpha = 0\.8, shape = 17\)/);
+  assert.match(source, /geom_smooth\(method = "loess", se = TRUE, linewidth = 1\)/);
+  assert.match(source, /facet_wrap\(~group, ncol = 2, scales = "free_y"\)/);
+  assert.match(source, /theme_minimal\(base_size = 13\)/);
+});
+
+test('lineranges compile with generated interval parameters', () => {
+  const spec = {
+    ...SPEC,
+    plot: {
+      ...SPEC.plot,
+      layers: [{ geom: 'linerange', params: { linewidth: 0.85 } }]
+    }
+  };
+  assert.match(compilePlotR(spec), /geom_linerange\(aes\(ymin = lower, ymax = upper\), linewidth = 0\.85\)/);
 });

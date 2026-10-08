@@ -10,6 +10,9 @@ assert SPEC and SPEC.loader
 sys.modules[SPEC.name] = generator
 SPEC.loader.exec_module(generator)
 BASE_TECHNIQUES = generator.BASE_TECHNIQUES
+FACET_PARAMETER_DOMAINS = generator.FACET_PARAMETER_DOMAINS
+LAYER_PARAMETER_DOMAINS = generator.LAYER_PARAMETER_DOMAINS
+THEME_PARAMETER_DOMAINS = generator.THEME_PARAMETER_DOMAINS
 generate_slot = generator.generate_slot
 score_thresholds = generator.score_thresholds
 
@@ -30,6 +33,8 @@ class GeneratorTests(unittest.TestCase):
         second = generate_slot(123456)
         self.assertEqual(first, second)
         self.assertEqual(first["slot_data_version"], 2)
+        self.assertEqual(first["generator_version"], 2)
+        self.assertEqual(first["world_version"], "0.4.0")
         self.assertEqual(len(first["trials"]), 8)
         self.assertEqual({trial["technique"] for trial in first["trials"]}, set(BASE_TECHNIQUES))
         self.assertTrue(all(a["technique"] != b["technique"] for a, b in zip(first["trials"], first["trials"][1:])))
@@ -51,6 +56,37 @@ class GeneratorTests(unittest.TestCase):
                     self.assertIsNotNone(trial["plot"]["coordinate"])
                 if "Annotations" in trial["requiredItems"]:
                     self.assertIsNotNone(trial["plot"]["annotation"])
+
+                for layer in trial["plot"]["layers"]:
+                    domains = LAYER_PARAMETER_DOMAINS[layer["geom"]]
+                    self.assertEqual(set(layer["params"]), set(domains))
+                    for name, value in layer["params"].items():
+                        self.assertIn(value, domains[name])
+
+                for name, value in trial["plot"]["themeParams"].items():
+                    self.assertIn(value, THEME_PARAMETER_DOMAINS[name])
+                if trial["plot"]["facet"]:
+                    for name, value in trial["plot"]["facetParams"].items():
+                        self.assertIn(value, FACET_PARAMETER_DOMAINS[name])
+
+    def test_parameter_domains_produce_variety(self):
+        seen = {}
+        interval_geoms = set()
+        line_layer_counts = set()
+        for seed in range(1, 301):
+            for trial in generate_slot(seed)["trials"]:
+                for layer in trial["plot"]["layers"]:
+                    interval_geoms.add(layer["geom"]) if trial["technique"] == "Intervals" else None
+                    for name, value in layer["params"].items():
+                        seen.setdefault((layer["geom"], name), set()).add(value)
+                if trial["technique"] == "Lines":
+                    line_layer_counts.add(len(trial["plot"]["layers"]))
+
+        for geom, domains in LAYER_PARAMETER_DOMAINS.items():
+            for name, values in domains.items():
+                self.assertEqual(seen[(geom, name)], set(values))
+        self.assertTrue({"errorbar", "linerange"}.issubset(interval_geoms))
+        self.assertGreater(len(line_layer_counts), 1)
 
 
 if __name__ == "__main__":
