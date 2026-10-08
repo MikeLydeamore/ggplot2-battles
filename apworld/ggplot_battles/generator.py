@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -156,6 +157,7 @@ def _predicates(technique: str, modifiers: list[str], layers: list[dict[str, Any
 def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) -> dict[str, Any]:
     random = StableRandom(seed)
     template = TEMPLATES[technique]
+    identifier = re.sub(r"[^A-Za-z0-9_]", "_", str(trial_id))
     geoms = list(template.geoms)
     if technique == "Points" and modifiers and random.integer(0, 1):
         geoms.append("smooth")
@@ -175,7 +177,7 @@ def build_trial(trial_id: int, technique: str, seed: int, modifiers: list[str]) 
 
     dataset: dict[str, Any] = {
         "kind": template.dataset_kind,
-        "name": f"trial_{trial_id}_data",
+        "name": f"trial_{identifier}_data",
         "rows": random.integer(48, 84) if template.dataset_kind not in ("categorical", "intervals") else random.integer(8, 12),
         "groups": ["Cyan", "Coral", "Gold"],
         "slope": round(0.5 + random.integer(2, 12) / 10, 2),
@@ -259,7 +261,7 @@ def generate_slot(seed: int) -> dict[str, Any]:
         "slot_data_version": 2,
         "schema_version": SCHEMA_VERSION,
         "generator_version": GENERATOR_VERSION,
-        "web_app_min_version": "0.2.0",
+        "web_app_min_version": "0.4.0",
         "world_version": "0.4.0",
         "opening_technique": opening,
         "trials": trials,

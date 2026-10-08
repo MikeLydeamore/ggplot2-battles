@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  StableRandom, compileChallengeSource, compilePlotR, locationId, locationName, materializeDataset, validateChallengeSpec
+  StableRandom, compileChallengeSource, compileFinalChallengeSource, compilePlotR, locationId, locationName,
+  materializeDataset, validateChallengeSpec
 } from '../packages/challenge-spec/index.js';
 
 const SPEC = {
@@ -10,18 +11,21 @@ const SPEC = {
   trialId: 1,
   seed: 123456,
   technique: 'Points',
-  dataset: { kind: 'correlated', name: 'trial_1_data', rows: 12, groups: ['A', 'B'], slope: 1.2 },
+  dataset: {
+    kind: 'correlated', name: 'trial_1_data', rows: 48, groups: ['A', 'B'],
+    slope: 1.2, trend: 0.1, seasonality: 2, grouped: true
+  },
   plot: {
     mapping: { x: 'x', y: 'y', colour: 'group' },
     layers: [{ geom: 'point', params: { size: 2.1, alpha: 0.8, shape: 16 } }],
     facet: null, scale: null, coordinate: null, annotation: null,
-    theme: 'theme_minimal', themeParams: { baseSize: 11 }, palette: ['#0dcaf0', '#ff6b6b'],
+    theme: 'theme_minimal', themeParams: { baseSize: 11 }, palette: ['#0dcaf0', '#ff6b6b', '#ffd166'],
     title: 'Generated points', xLabel: 'Predictor', yLabel: 'Response'
   },
   requiredItems: ['Points'],
   predicates: [{ match: 'contains', value: ':geom:GeomPoint', minimum: 1 }],
   thresholds: { match: 90, mastery: 97 },
-  brief: { title: 'Generated points', description: 'Test', schema: 'x/y numeric', colours: ['#0dcaf0'] }
+  brief: { title: 'Generated points', description: 'Test', schema: 'x/y numeric', colours: ['#0dcaf0', '#ff6b6b', '#ffd166'] }
 };
 
 test('stable PRNG has a fixed sequence', () => {
@@ -40,7 +44,7 @@ test('materialization is deterministic and finite', () => {
   const first = materializeDataset(SPEC);
   const second = materializeDataset(SPEC);
   assert.deepEqual(first, second);
-  assert.equal(first.length, 12);
+  assert.equal(first.length, 48);
   assert.ok(first.every(row => Number.isFinite(row.x) && Number.isFinite(row.y)));
 });
 
@@ -49,7 +53,7 @@ test('valid spec compiles to a self-contained R challenge', () => {
   const source = compileChallengeSource(SPEC);
   assert.match(source, /trial_1_data <- data\.frame/);
   assert.match(source, /geom_point/);
-  assert.match(source, /#\| colours: 'c\("#0dcaf0", "#ff6b6b"\)'/);
+  assert.match(source, /#\| colours: 'c\("#0dcaf0", "#ff6b6b", "#ffd166"\)'/);
   assert.match(source, /print\(p\)/);
 });
 
@@ -58,6 +62,26 @@ test('spec validation rejects values outside the bounded domains', () => {
   invalid.plot.layers[0].params.size = 99;
   assert.equal(validateChallengeSpec(invalid).valid, false);
   assert.match(validateChallengeSpec(invalid).errors.join(' '), /outside its supported domain/);
+});
+
+test('spec validation rejects unsafe R identifiers and incompatible registries', () => {
+  const unsafe = structuredClone(SPEC);
+  unsafe.dataset.name = 'trial-final-data';
+  assert.match(validateChallengeSpec(unsafe).errors.join(' '), /safe R identifier/);
+
+  const incompatible = structuredClone(SPEC);
+  incompatible.plot.layers = [{ geom: 'line', params: { linewidth: 0.85, linetype: 'solid' } }];
+  assert.match(validateChallengeSpec(incompatible).errors.join(' '), /incompatible with technique Points/);
+});
+
+test('spec validation rejects weakened predicates and item requirements', () => {
+  const weakened = structuredClone(SPEC);
+  weakened.predicates = [{ match: 'contains', value: ':geom:GeomLine', minimum: 1 }];
+  assert.match(validateChallengeSpec(weakened).errors.join(' '), /predicates do not match/);
+
+  const unlocked = structuredClone(SPEC);
+  unlocked.requiredItems = [];
+  assert.match(validateChallengeSpec(unlocked).errors.join(' '), /Required items do not match/);
 });
 
 test('all five synthetic dataset generators are deterministic and finite', () => {
@@ -112,4 +136,25 @@ test('lineranges compile with generated interval parameters', () => {
     }
   };
   assert.match(compilePlotR(spec), /geom_linerange\(aes\(ymin = lower, ymax = upper\), linewidth = 0\.85\)/);
+});
+
+test('final exhibition compiles with valid R dataset identifiers', () => {
+  const left = structuredClone(SPEC);
+  left.trialId = 'final-a';
+  left.dataset.name = 'trial_final_a_data';
+  const right = structuredClone(SPEC);
+  right.trialId = 'final-b';
+  right.dataset.name = 'trial_final_b_data';
+  const source = compileFinalChallengeSource({
+    technique: 'Composition',
+    panels: [left, right],
+    brief: {
+      title: 'Final Exhibition', description: 'Test final.', schema: 'two panels',
+      colours: [...left.plot.palette, ...right.plot.palette]
+    }
+  });
+  assert.match(source, /trial_final_a_data <- data\.frame/);
+  assert.match(source, /trial_final_b_data <- data\.frame/);
+  assert.doesNotMatch(source, /trial_final-[ab]_data/);
+  assert.match(source, /p <- p1 \+ p2/);
 });

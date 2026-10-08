@@ -25,4 +25,15 @@ test('embedded battles use the shell bridge before standalone connection code', 
   assert.match(battle, /ggplot-ap-complete-goal/);
   assert.match(battle, /querySelectorAll\('a\[href="\/"\]'\)/);
   assert.match(battle, /ggplot-ap-close-battle/);
+  assert.match(battle, /allowDescriptionMarkdown: false/);
+});
+
+test('the AP build pins webR and does not load the unused Markdown renderer', async () => {
+  const [editor, battleHtml] = await Promise.all([
+    read('../js/code-editor.js'),
+    read('../archipelago/site/battle/index.html')
+  ]);
+  assert.match(editor, /webr\.r-wasm\.org\/v0\.6\.0\/webr\.mjs/);
+  assert.doesNotMatch(editor, /webr\.r-wasm\.org\/latest/);
+  assert.doesNotMatch(battleHtml, /marked(?:\.min)?\.js/);
 });

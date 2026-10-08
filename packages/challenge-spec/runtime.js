@@ -1,6 +1,9 @@
 import { GENERATOR_VERSION, SCHEMA_VERSION } from './constants.js';
 import { StableRandom } from './prng.js';
-import { FACET_PARAMETER_DOMAINS, LAYER_PARAMETER_DOMAINS, THEME_PARAMETER_DOMAINS } from './registry.js';
+import {
+  DATASET_REGISTRY, FACET_PARAMETER_DOMAINS, LAYER_PARAMETER_DOMAINS, PALETTES,
+  TECHNIQUE_REGISTRY, THEMES, THEME_PARAMETER_DOMAINS
+} from './registry.js';
 
 const escapeR = value => JSON.stringify(String(value));
 const numberR = value => Number(value.toFixed(6)).toString();
@@ -11,7 +14,33 @@ export function validateChallengeSpec(spec) {
   if (!spec || typeof spec !== 'object') errors.push('Specification must be an object.');
   if (spec?.schemaVersion !== SCHEMA_VERSION) errors.push(`Unsupported schema version ${spec?.schemaVersion}.`);
   if (spec?.generatorVersion !== GENERATOR_VERSION) errors.push(`Unsupported generator version ${spec?.generatorVersion}.`);
+  if (!Number.isInteger(spec?.seed) || spec.seed < 1) errors.push('Seed must be a positive integer.');
   if (!spec?.dataset?.kind || !spec?.dataset?.name) errors.push('Dataset kind and name are required.');
+  const datasetDefinition = DATASET_REGISTRY[spec?.dataset?.kind];
+  if (!datasetDefinition) {
+    errors.push(`Unsupported dataset kind ${spec?.dataset?.kind}.`);
+  } else {
+    const [minimumRows, maximumRows] = datasetDefinition.rows;
+    if (!Number.isInteger(spec.dataset.rows) || spec.dataset.rows < minimumRows || spec.dataset.rows > maximumRows) {
+      errors.push(`Dataset rows must be an integer from ${minimumRows} through ${maximumRows}.`);
+    }
+  }
+  if (!/^[A-Za-z][A-Za-z0-9._]*$/.test(spec?.dataset?.name || '')) {
+    errors.push('Dataset name must be a safe R identifier.');
+  }
+  if (!Array.isArray(spec?.dataset?.groups) || !spec.dataset.groups.length ||
+      spec.dataset.groups.some(group => typeof group !== 'string' || !group.length)) {
+    errors.push('Dataset groups must be a non-empty array of labels.');
+  }
+  for (const parameter of ['slope', 'trend', 'seasonality']) {
+    if (!Number.isFinite(spec?.dataset?.[parameter])) errors.push(`Dataset ${parameter} must be finite.`);
+  }
+  if (typeof spec?.dataset?.grouped !== 'boolean') errors.push('Dataset grouped must be boolean.');
+  const techniqueDefinition = TECHNIQUE_REGISTRY[spec?.technique];
+  if (!techniqueDefinition) errors.push(`Unsupported technique ${spec?.technique}.`);
+  else if (spec?.dataset?.kind && !techniqueDefinition.datasets.includes(spec.dataset.kind)) {
+    errors.push(`Dataset ${spec.dataset.kind} is incompatible with technique ${spec.technique}.`);
+  }
   if (!Array.isArray(spec?.plot?.layers) || !spec.plot.layers.length) errors.push('At least one plot layer is required.');
   for (const [index, layer] of (spec?.plot?.layers || []).entries()) {
     const domains = LAYER_PARAMETER_DOMAINS[layer?.geom];
@@ -19,13 +48,78 @@ export function validateChallengeSpec(spec) {
       errors.push(`Layer ${index + 1} uses unsupported geom ${layer?.geom}.`);
     } else {
       validateParameters(layer.params, domains, `Layer ${index + 1}`, errors);
+      if (techniqueDefinition && !techniqueDefinition.layers.includes(layer.geom)) {
+        errors.push(`Layer ${index + 1} geom ${layer.geom} is incompatible with technique ${spec.technique}.`);
+      }
+    }
+  }
+  const mapping = spec?.plot?.mapping;
+  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+    errors.push('Plot mapping is required.');
+  } else if (datasetDefinition) {
+    const allowedAesthetics = new Set(['x', 'y', 'colour', 'fill', 'group']);
+    for (const [aesthetic, role] of Object.entries(mapping)) {
+      if (!allowedAesthetics.has(aesthetic)) errors.push(`Unsupported aesthetic ${aesthetic}.`);
+      if (!datasetDefinition.roles.includes(role)) errors.push(`Mapping role ${role} is unavailable in dataset ${spec.dataset.kind}.`);
     }
   }
   if (spec?.plot?.facet) validateParameters(spec.plot.facetParams, FACET_PARAMETER_DOMAINS, 'Facet', errors);
+  if (spec?.plot?.facet && !datasetDefinition?.roles.includes(spec.plot.facet)) errors.push('Facet column is unavailable in the dataset.');
   validateParameters(spec?.plot?.themeParams, THEME_PARAMETER_DOMAINS, 'Theme', errors);
+  if (!THEMES.includes(spec?.plot?.theme)) errors.push(`Unsupported theme ${spec?.plot?.theme}.`);
+  if (![null, undefined, 'log10', 'reverse'].includes(spec?.plot?.scale)) errors.push(`Unsupported scale ${spec?.plot?.scale}.`);
+  if (![null, undefined, 'flip', 'polar'].includes(spec?.plot?.coordinate)) errors.push(`Unsupported coordinate ${spec?.plot?.coordinate}.`);
+  if (!Array.isArray(spec?.plot?.palette) || !PALETTES.some(palette => arraysEqual(palette, spec.plot.palette))) {
+    errors.push('Plot palette is not registered.');
+  }
   if (!Array.isArray(spec?.predicates) || !spec.predicates.length) errors.push('Structural predicates are required.');
+  else if (!arraysEqual(spec.predicates.map(stableObject), expectedPredicates(spec).map(stableObject))) {
+    errors.push('Structural predicates do not match the declared plot specification.');
+  }
+  const expectedItems = expectedRequiredItems(spec);
+  if (!Array.isArray(spec?.requiredItems) || !sameMembers(spec.requiredItems, expectedItems)) {
+    errors.push('Required items do not match the declared plot specification.');
+  }
   if (!(spec?.thresholds?.match < spec?.thresholds?.mastery)) errors.push('Mastery threshold must exceed match threshold.');
+  if (!['title', 'description', 'schema'].every(name => typeof spec?.brief?.[name] === 'string')) {
+    errors.push('Brief title, description, and schema must be strings.');
+  }
+  if (!arraysEqual(spec?.brief?.colours || [], spec?.plot?.palette || [])) errors.push('Brief colours must match the plot palette.');
   return { valid: errors.length === 0, errors };
+}
+
+function arraysEqual(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function stableObject(value) {
+  return JSON.stringify(Object.fromEntries(Object.entries(value || {}).sort(([left], [right]) => left.localeCompare(right))));
+}
+
+function sameMembers(left, right) {
+  return left.length === right.length && new Set(left).size === left.length && left.every(value => right.includes(value));
+}
+
+function expectedRequiredItems(spec) {
+  const items = [spec?.technique];
+  if (spec?.plot?.facet) items.push('Faceting');
+  if (spec?.plot?.scale) items.push('Scale Transformations');
+  if (spec?.plot?.coordinate) items.push('Coordinate Systems');
+  if (spec?.plot?.annotation) items.push('Annotations');
+  return items;
+}
+
+function expectedPredicates(spec) {
+  const predicates = (spec?.plot?.layers || []).map(layer => ({
+    match: 'contains',
+    value: `:geom:Geom${String(layer.geom || '').replace(/^./, value => value.toUpperCase())}`,
+    minimum: 1
+  }));
+  if (spec?.plot?.facet) predicates.push({ match: 'contains', value: 'facet:FacetWrap', minimum: 1 });
+  if (spec?.plot?.coordinate) predicates.push({ match: 'regex', value: 'coordinates:Coord(Flip|Polar)', minimum: 1 });
+  if (spec?.plot?.scale) predicates.push({ match: 'regex', value: ':transform:(reverse|log-10)', minimum: 1 });
+  if (spec?.plot?.annotation) predicates.push({ match: 'contains', value: ':geom:GeomText', minimum: 1 });
+  return predicates;
 }
 
 function validateParameters(params, domains, label, errors) {

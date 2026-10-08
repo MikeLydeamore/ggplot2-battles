@@ -901,7 +901,7 @@ async function destroyCaptureResult(capture) {
 }
 
 async function initializeWebR() {
-  const { WebR } = await import('https://webr.r-wasm.org/latest/webr.mjs');
+  const { WebR } = await import('https://webr.r-wasm.org/v0.6.0/webr.mjs');
   webR = new WebR();
   await webR.init();
   await webR.evalRVoid('options(device=function(...){webr::canvas(width=350, height=200)})');
@@ -961,7 +961,11 @@ function renderChallengeDetails(options) {
 
   const description = document.querySelector('#target-description');
   if (description) {
-    description.innerHTML = marked.parse(options.description || '');
+    if (window.ggplotBattleChallengeProvider?.allowDescriptionMarkdown === false) {
+      description.textContent = options.description || '';
+    } else {
+      description.innerHTML = marked.parse(options.description || '');
+    }
   }
 
   const colours = document.querySelector('#target-colours');

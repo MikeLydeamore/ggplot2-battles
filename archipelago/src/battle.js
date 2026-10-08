@@ -58,6 +58,7 @@ function initializeBattle() {
     const hasStarterScaffold = receivedNames.includes('Starter Scaffold');
     const hintLevel = receivedNames.filter(item => item === 'Hint Book').length;
     window.ggplotBattleChallengeProvider = {
+      allowDescriptionMarkdown: false,
       getChallengeId: () => `ap-${trialId}`,
       loadChallengeSource: () => {
         const source = trialId === 'final'

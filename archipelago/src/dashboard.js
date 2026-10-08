@@ -28,6 +28,8 @@ passwordInput.value = ArchipelagoClient.savedPassword();
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
+  closeBattle({ updateHistory: false });
+  runContent.hidden = true;
   setConnecting(true);
   try {
     await client.connect({
@@ -131,7 +133,10 @@ function createTrialCard(spec, owned, checked) {
   heading.className = 'trial-meta';
   heading.innerHTML = `<div><p class="eyebrow">Level ${spec.trialId}</p><h3>${escapeHtml(levelTitle(spec.brief.title))}</h3></div><span class="inventory-chip">${escapeHtml(spec.technique)}</span>`;
   const description = document.createElement('p');
-  description.textContent = `${spec.dataset.rows} synthetic observations · ${spec.plot.theme.replace('theme_', '')} theme`;
+  const observationCount = spec.dataset.kind === 'timeseries' && spec.dataset.grouped
+    ? spec.dataset.rows * 2
+    : spec.dataset.rows;
+  description.textContent = `${observationCount} synthetic observations · ${spec.plot.theme.replace('theme_', '')} theme`;
   const milestones = document.createElement('div');
   milestones.className = 'checks';
   ['Structure', ...client.slotData.score_thresholds].forEach(milestone => {

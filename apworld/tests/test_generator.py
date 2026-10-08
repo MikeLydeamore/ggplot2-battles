@@ -35,9 +35,13 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(first["slot_data_version"], 2)
         self.assertEqual(first["generator_version"], 2)
         self.assertEqual(first["world_version"], "0.4.0")
+        self.assertEqual(first["web_app_min_version"], "0.4.0")
         self.assertEqual(len(first["trials"]), 8)
         self.assertEqual({trial["technique"] for trial in first["trials"]}, set(BASE_TECHNIQUES))
         self.assertTrue(all(a["technique"] != b["technique"] for a, b in zip(first["trials"], first["trials"][1:])))
+        for panel in first["final"]["panels"]:
+            self.assertRegex(panel["dataset"]["name"], r"^[A-Za-z][A-Za-z0-9._]*$")
+            self.assertNotIn("-", panel["dataset"]["name"])
 
     def test_many_slots_are_well_formed(self):
         for seed in range(1, 1001):

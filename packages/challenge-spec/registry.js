@@ -1,16 +1,16 @@
 export const DATASET_REGISTRY = {
-  correlated: { roles: ['x', 'y', 'group'], rows: [48, 96] },
-  distributions: { roles: ['value', 'group'], rows: [80, 160] },
-  categorical: { roles: ['category', 'value', 'group'], rows: [6, 18] },
-  timeseries: { roles: ['time', 'value', 'group', 'lower', 'upper'], rows: [24, 72] },
-  intervals: { roles: ['label', 'estimate', 'lower', 'upper', 'group'], rows: [7, 14] }
+  correlated: { roles: ['x', 'y', 'group'], rows: [48, 84] },
+  distributions: { roles: ['value', 'group'], rows: [48, 84] },
+  categorical: { roles: ['category', 'value', 'group'], rows: [8, 12] },
+  timeseries: { roles: ['time', 'value', 'group', 'lower', 'upper'], rows: [48, 84] },
+  intervals: { roles: ['label', 'estimate', 'lower', 'upper', 'group'], rows: [8, 12] }
 };
 
 export const TECHNIQUE_REGISTRY = {
   Points: { datasets: ['correlated'], layers: ['point', 'smooth'] },
   Distributions: { datasets: ['distributions'], layers: ['histogram', 'density'] },
   Categorical: { datasets: ['categorical'], layers: ['col'] },
-  Lines: { datasets: ['timeseries'], layers: ['line', 'ribbon'] },
+  Lines: { datasets: ['timeseries'], layers: ['line', 'ribbon', 'point'] },
   Intervals: { datasets: ['intervals'], layers: ['point', 'errorbar', 'linerange'] }
 };
 

@@ -4,14 +4,16 @@ import {
   LOCATION_NAMES_BY_ID,
   SCHEMA_VERSION,
   GENERATOR_VERSION,
-  SLOT_DATA_VERSION
+  SLOT_DATA_VERSION,
+  WEB_APP_VERSION,
+  validateChallengeSpec
 } from '../shared/challenge-spec/index.js';
 
 const CONNECTION_KEY = 'ggplot-ap-connection-v1';
 const PASSWORD_KEY = 'ggplot-ap-password-v1';
 const UUID_KEY = 'ggplot-ap-uuid-v1';
 const SLOT_DATA_KEY = 'ggplot-ap-slot-data-v1';
-const PENDING_GOAL_KEY = 'ggplot-ap-pending-goal-v1';
+const PENDING_GOAL_KEY = 'ggplot-ap-pending-goal-v2';
 
 export class ArchipelagoClient extends EventTarget {
   constructor() {
@@ -30,6 +32,8 @@ export class ArchipelagoClient extends EventTarget {
     this.shouldReconnect = false;
     this.reconnectAttempts = 0;
     this.reconnectTimer = null;
+    this.roomIdentity = '';
+    this.goalPending = false;
   }
 
   static savedConnection() {
@@ -46,7 +50,11 @@ export class ArchipelagoClient extends EventTarget {
 
   static savedItems() {
     const connection = this.savedConnection();
-    return readStoredItems(normalizeEndpoint(connection.server), connection.slot || '');
+    const cached = this.savedSlotData();
+    const endpoint = normalizeEndpoint(connection.server);
+    const slot = connection.slot || '';
+    if (!cached || cached.endpoint !== endpoint || cached.slot !== slot || !cached.roomIdentity) return [];
+    return readStoredItems(endpoint, slot, cached.roomIdentity);
   }
 
   async connect({ server, slot, password = '' }) {
@@ -60,12 +68,16 @@ export class ArchipelagoClient extends EventTarget {
     this.slot = String(slot || '').trim();
     this.password = password;
     if (!this.endpoint || !this.slot) throw new Error('Server and slot name are required.');
+    this.roomIdentity = '';
+    this.slotData = null;
+    this.items = [];
+    this.checkedLocations = new Set();
+    this.pendingLocations = new Set();
+    this.goalPending = false;
     this.connectionConfig = { server, slot: this.slot, password };
     this.shouldReconnect = true;
     localStorage.setItem(CONNECTION_KEY, JSON.stringify({ server, slot: this.slot }));
     sessionStorage.setItem(PASSWORD_KEY, password);
-    this.items = readStoredItems(this.endpoint, this.slot);
-    this.pendingLocations = new Set(readStoredPending(this.endpoint, this.slot));
 
     this.connectPromise = new Promise((resolve, reject) => {
       const socket = new WebSocket(this.endpoint);
@@ -109,6 +121,23 @@ export class ArchipelagoClient extends EventTarget {
 
   handlePacket(packet, resolve, reject) {
     if (packet.cmd === 'RoomInfo') {
+      this.roomIdentity = String(packet.seed_name || '').trim();
+      if (!this.roomIdentity) {
+        const error = new Error('The Archipelago server did not provide a room seed identity.');
+        this.shouldReconnect = false;
+        reject(error);
+        this.emit('error', { error });
+        this.socket?.close();
+        return;
+      }
+      const cached = ArchipelagoClient.savedSlotData();
+      if (cached && cached.endpoint === this.endpoint && cached.slot === this.slot &&
+          cached.roomIdentity && cached.roomIdentity !== this.roomIdentity) {
+        localStorage.removeItem(SLOT_DATA_KEY);
+      }
+      this.items = readStoredItems(this.endpoint, this.slot, this.roomIdentity);
+      this.pendingLocations = new Set(readStoredPending(this.endpoint, this.slot, this.roomIdentity));
+      this.goalPending = localStorage.getItem(goalStorageKey(this.endpoint, this.slot, this.roomIdentity)) === 'true';
       this.send({
         cmd: 'Connect', game: GAME_NAME, name: this.slot, password: this.password,
         uuid: getUuid(), items_handling: 7, slot_data: true, tags: ['AP'],
@@ -118,8 +147,10 @@ export class ArchipelagoClient extends EventTarget {
     }
     if (packet.cmd === 'ConnectionRefused') {
       const error = new Error(`Connection refused: ${(packet.errors || []).join(', ') || 'unknown reason'}`);
+      this.shouldReconnect = false;
       reject(error);
       this.emit('error', { error });
+      this.socket?.close();
       return;
     }
     if (packet.cmd === 'Connected') {
@@ -138,7 +169,7 @@ export class ArchipelagoClient extends EventTarget {
       this.checkedLocations = new Set(packet.checked_locations || []);
       this.removeConfirmedPending();
       localStorage.setItem(SLOT_DATA_KEY, JSON.stringify({
-        endpoint: this.endpoint, slot: this.slot, data: this.slotData
+        endpoint: this.endpoint, slot: this.slot, roomIdentity: this.roomIdentity, data: this.slotData
       }));
       this.emit('connected', { slotData: this.slotData });
       this.emit('state', this.state());
@@ -148,8 +179,13 @@ export class ArchipelagoClient extends EventTarget {
     }
     if (packet.cmd === 'ReceivedItems') {
       const index = Number(packet.index) || 0;
+      if (index > this.items.length) {
+        this.emit('status', { message: 'Received an out-of-sequence item packet; requesting synchronization.' });
+        this.send({ cmd: 'Sync' });
+        return;
+      }
       this.items.splice(index, this.items.length - index, ...(packet.items || []));
-      storeItems(this.endpoint, this.slot, this.items);
+      storeItems(this.endpoint, this.slot, this.roomIdentity, this.items);
       this.emit('items', { items: this.items, received: packet.items || [] });
       this.emit('state', this.state());
       return;
@@ -175,7 +211,7 @@ export class ArchipelagoClient extends EventTarget {
     const fresh = ids.filter(id => !this.checkedLocations.has(id) && !this.pendingLocations.has(id));
     if (!fresh.length) return [];
     fresh.forEach(id => this.pendingLocations.add(id));
-    storePending(this.endpoint, this.slot, this.pendingLocations);
+    storePending(this.endpoint, this.slot, this.roomIdentity, this.pendingLocations);
     this.flushPending();
     this.emit('locations-sent', { locations: fresh, connected: this.connected });
     this.emit('state', this.state());
@@ -183,7 +219,10 @@ export class ArchipelagoClient extends EventTarget {
   }
 
   completeGoal() {
-    localStorage.setItem(goalStorageKey(this.endpoint, this.slot), 'true');
+    this.goalPending = true;
+    if (this.roomIdentity) {
+      localStorage.setItem(goalStorageKey(this.endpoint, this.slot, this.roomIdentity), 'true');
+    }
     if (this.connected) this.send({ cmd: 'StatusUpdate', status: 30 });
   }
 
@@ -215,14 +254,14 @@ export class ArchipelagoClient extends EventTarget {
     if (this.pendingLocations.size) {
       this.send({ cmd: 'LocationChecks', locations: [...this.pendingLocations] });
     }
-    if (localStorage.getItem(goalStorageKey(this.endpoint, this.slot)) === 'true') {
+    if (this.goalPending) {
       this.send({ cmd: 'StatusUpdate', status: 30 });
     }
   }
 
   removeConfirmedPending() {
     this.checkedLocations.forEach(id => this.pendingLocations.delete(id));
-    storePending(this.endpoint, this.slot, this.pendingLocations);
+    storePending(this.endpoint, this.slot, this.roomIdentity, this.pendingLocations);
   }
 
   scheduleReconnect() {
@@ -273,32 +312,33 @@ function getUuid() {
   return uuid;
 }
 
-function itemStorageKey(endpoint, slot) {
-  return `ggplot-ap-received-v1:${endpoint}:${slot}`;
+function itemStorageKey(endpoint, slot, roomIdentity) {
+  return `ggplot-ap-received-v2:${endpoint}:${slot}:${roomIdentity}`;
 }
 
-function readStoredItems(endpoint, slot) {
-  try { return JSON.parse(localStorage.getItem(itemStorageKey(endpoint, slot)) || '[]'); } catch { return []; }
+function readStoredItems(endpoint, slot, roomIdentity) {
+  try { return JSON.parse(localStorage.getItem(itemStorageKey(endpoint, slot, roomIdentity)) || '[]'); } catch { return []; }
 }
 
-function storeItems(endpoint, slot, items) {
-  localStorage.setItem(itemStorageKey(endpoint, slot), JSON.stringify(items));
+function storeItems(endpoint, slot, roomIdentity, items) {
+  localStorage.setItem(itemStorageKey(endpoint, slot, roomIdentity), JSON.stringify(items));
 }
 
-function pendingStorageKey(endpoint, slot) {
-  return `ggplot-ap-pending-locations-v1:${endpoint}:${slot}`;
+function pendingStorageKey(endpoint, slot, roomIdentity) {
+  return `ggplot-ap-pending-locations-v2:${endpoint}:${slot}:${roomIdentity}`;
 }
 
-function readStoredPending(endpoint, slot) {
-  try { return JSON.parse(localStorage.getItem(pendingStorageKey(endpoint, slot)) || '[]'); } catch { return []; }
+function readStoredPending(endpoint, slot, roomIdentity) {
+  try { return JSON.parse(localStorage.getItem(pendingStorageKey(endpoint, slot, roomIdentity)) || '[]'); } catch { return []; }
 }
 
-function storePending(endpoint, slot, locations) {
-  localStorage.setItem(pendingStorageKey(endpoint, slot), JSON.stringify([...locations]));
+function storePending(endpoint, slot, roomIdentity, locations) {
+  if (!roomIdentity) return;
+  localStorage.setItem(pendingStorageKey(endpoint, slot, roomIdentity), JSON.stringify([...locations]));
 }
 
-function goalStorageKey(endpoint, slot) {
-  return `${PENDING_GOAL_KEY}:${endpoint}:${slot}`;
+function goalStorageKey(endpoint, slot, roomIdentity) {
+  return `${PENDING_GOAL_KEY}:${endpoint}:${slot}:${roomIdentity}`;
 }
 
 function assertCompatibleSlotData(slotData) {
@@ -307,4 +347,34 @@ function assertCompatibleSlotData(slotData) {
       !Array.isArray(slotData.score_thresholds)) {
     throw new Error(`This room uses an unsupported challenge format. Expected slot data ${SLOT_DATA_VERSION}, schema ${SCHEMA_VERSION}, generator ${GENERATOR_VERSION}.`);
   }
+  if (compareVersions(WEB_APP_VERSION, slotData.web_app_min_version || '0.0.0') < 0) {
+    throw new Error(`This room requires web app ${slotData.web_app_min_version} or newer; this client is ${WEB_APP_VERSION}.`);
+  }
+  if (!Array.isArray(slotData.trials) || slotData.trials.length !== 8) {
+    throw new Error('This room does not contain exactly eight generated levels.');
+  }
+  if (!slotData.score_thresholds.every(score => Number.isInteger(score) && score >= 80 && score <= 100)) {
+    throw new Error('This room contains invalid score thresholds.');
+  }
+  for (const spec of slotData.trials) assertValidSpec(spec, `Level ${spec?.trialId ?? '?'}`);
+  if (!Array.isArray(slotData.final?.panels) || slotData.final.panels.length !== 2) {
+    throw new Error('This room contains an invalid final exhibition.');
+  }
+  slotData.final.panels.forEach((spec, index) => assertValidSpec(spec, `Final panel ${index + 1}`));
+}
+
+function assertValidSpec(spec, label) {
+  const validation = validateChallengeSpec(spec);
+  if (!validation.valid) throw new Error(`${label} is invalid: ${validation.errors.join(' ')}`);
+}
+
+function compareVersions(left, right) {
+  const parts = value => String(value).split('.').map(part => Number.parseInt(part, 10) || 0);
+  const leftParts = parts(left);
+  const rightParts = parts(right);
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index++) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (difference) return Math.sign(difference);
+  }
+  return 0;
 }

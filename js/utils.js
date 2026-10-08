@@ -15,7 +15,7 @@ window.createCodeList = createCodeList;
 
 const BEST_SCORE_STORAGE_KEY = 'ggplot-battles-best-scores-v1';
 const PACKAGE_WARMER_SESSION_KEY = 'ggplot-battles-package-warmer-v1';
-const WEBR_MODULE_URL = 'https://webr.r-wasm.org/latest/webr.mjs';
+const WEBR_MODULE_URL = 'https://webr.r-wasm.org/v0.6.0/webr.mjs';
 const HERO_PLOT_ROTATION_INTERVAL_MS = 5500;
 const HERO_PLOT_TRANSITION_MS = 180;
 const NO_BEST_FILTER_VALUE = 'no-best-yet';
