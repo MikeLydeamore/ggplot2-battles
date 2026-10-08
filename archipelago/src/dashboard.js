@@ -16,6 +16,10 @@ const inventory = document.getElementById('inventory');
 const activity = document.getElementById('activity');
 const finalCard = document.getElementById('final-card');
 const checkCount = document.getElementById('check-count');
+const battleShell = document.getElementById('battle-shell');
+const battleFrame = document.getElementById('battle-frame');
+let latestState = null;
+let activeBattleUrl = '';
 
 const saved = ArchipelagoClient.savedConnection();
 serverInput.value = saved.server || '';
@@ -44,6 +48,7 @@ client.addEventListener('connected', () => {
   message.textContent = `Connected as ${slotInput.value}. Your generated trials are ready.`;
   runContent.hidden = false;
   addActivity('Connected and synchronized with the room.');
+  postBridgeState();
 });
 client.addEventListener('status', event => {
   if (event.detail.connected === false && !client.connected) {
@@ -52,7 +57,11 @@ client.addEventListener('status', event => {
     message.textContent = event.detail.message;
   }
 });
-client.addEventListener('state', event => renderState(event.detail));
+client.addEventListener('state', event => {
+  latestState = event.detail;
+  renderState(event.detail);
+  postBridgeState();
+});
 client.addEventListener('items', event => {
   event.detail.received.forEach(item => addActivity(`Received ${ITEM_NAMES_BY_ID[item.item] || `item ${item.item}`}.`));
 });
@@ -61,6 +70,35 @@ client.addEventListener('message', event => {
   if (text) addActivity(text);
 });
 client.addEventListener('error', event => setError(event.detail.error.message));
+client.addEventListener('locations-sent', event => postToBattle({
+  type: 'ggplot-ap-locations-sent',
+  locations: event.detail.locations,
+  connected: event.detail.connected
+}));
+document.addEventListener('click', event => {
+  if (!(event.target instanceof Element)) return;
+  const link = event.target.closest('a[href^="/battle/"]');
+  if (!link) return;
+  event.preventDefault();
+  openBattle(link.getAttribute('href'));
+});
+
+window.addEventListener('message', event => {
+  if (event.origin !== window.location.origin || event.source !== battleFrame.contentWindow) return;
+  const message = event.data || {};
+  if (message.type === 'ggplot-ap-bridge-ready') {
+    postBridgeState();
+  } else if (message.type === 'ggplot-ap-check-locations' && Array.isArray(message.locations)) {
+    client.checkLocations(message.locations.map(Number).filter(Number.isFinite));
+  } else if (message.type === 'ggplot-ap-complete-goal') {
+    client.completeGoal();
+  } else if (message.type === 'ggplot-ap-close-battle') {
+    returnToDashboard();
+  }
+});
+
+window.addEventListener('popstate', renderRoute);
+renderRoute();
 
 function renderState(state) {
   if (!state.slotData) return;
@@ -158,6 +196,62 @@ function addActivity(text) {
   item.textContent = text;
   activity.prepend(item);
   while (activity.children.length > 12) activity.lastElementChild.remove();
+}
+
+function openBattle(href, { updateHistory = true } = {}) {
+  const url = new URL(href, window.location.origin);
+  const route = `${url.pathname}${url.search}`;
+  if (activeBattleUrl !== route) {
+    activeBattleUrl = route;
+    battleFrame.src = route;
+  }
+  battleShell.hidden = false;
+  document.body.classList.add('is-battle-route');
+  if (updateHistory && `${window.location.pathname}${window.location.search}` !== route) {
+    window.history.pushState({ battle: route }, '', route);
+  }
+}
+
+function closeBattle({ updateHistory = true } = {}) {
+  battleShell.hidden = true;
+  document.body.classList.remove('is-battle-route');
+  if (updateHistory && window.location.pathname.startsWith('/battle')) {
+    window.history.pushState({}, '', '/');
+  }
+}
+
+function returnToDashboard() {
+  if (window.history.state?.battle) {
+    window.history.back();
+  } else {
+    closeBattle();
+  }
+}
+
+function renderRoute() {
+  if (window.location.pathname.startsWith('/battle')) {
+    openBattle(`${window.location.pathname}${window.location.search}`, { updateHistory: false });
+  } else {
+    closeBattle({ updateHistory: false });
+  }
+}
+
+function postBridgeState() {
+  if (!latestState) return;
+  postToBattle({
+    type: 'ggplot-ap-state',
+    state: {
+      connected: latestState.connected,
+      itemNames: latestState.itemNames,
+      checkedLocations: [...latestState.checkedLocations],
+      pendingLocations: [...latestState.pendingLocations]
+    }
+  });
+}
+
+function postToBattle(message) {
+  if (!battleFrame.contentWindow || !activeBattleUrl) return;
+  battleFrame.contentWindow.postMessage(message, window.location.origin);
 }
 
 function escapeHtml(value) {

@@ -12,7 +12,9 @@ python -m http.server 8000 --directory dist
 
 The client needs a generated Archipelago room containing a `ggplot Battles` slot. Connection details are saved locally, while the room password is retained only for the browser session. Received items and checked locations are synchronized from the Archipelago server.
 
-During a trial, the **Checks** button opens a flyout showing the structural logic, every available score check, pending and server-confirmed checks, and a session activity log. Required colours are displayed as a copy-ready R vector.
+The dashboard is a persistent application shell and owns the room's WebSocket connection. Trial links update browser history and open the isolated webR workspace inside that shell; the workspace reports checks through a same-origin bridge instead of opening another Archipelago connection. Moving between the dashboard and trials therefore does not produce server disconnect/reconnect events. Reloading or closing the top-level tab still reconnects normally.
+
+During a trial, the **Checks** button opens a flyout showing the current code-accuracy result, explicit pixel/code requirements for every check, pending and server-confirmed checks, and a session activity log. It intentionally does not reveal the required layers or modifiers. Required colours are displayed as a copy-ready R vector.
 
 ## Checks and unlocks
 

@@ -88,6 +88,7 @@ export class ArchipelagoClient extends EventTarget {
         window.clearTimeout(timeout);
         this.connected = false;
         this.emit('status', { message: 'Disconnected.', connected: false });
+        this.emit('state', this.state());
         if (this.socket === socket) {
           this.socket = null;
           this.scheduleReconnect();

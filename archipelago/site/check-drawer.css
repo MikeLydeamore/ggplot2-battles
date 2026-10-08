@@ -53,8 +53,6 @@
 .check-event-log li { color: var(--muted); font-size: .76rem; line-height: 1.45; padding-left: .7rem; border-left: 2px solid var(--line); }
 .check-event-log time { color: var(--cyan); margin-right: .35rem; }
 .check-event-empty { font-style: italic; }
-.ap-battle-page.drawer-open { overflow: hidden; }
-
 @media (max-width: 560px) {
   .battle-connection { gap: .5rem; }
   .battle-connection > a { display: none; }

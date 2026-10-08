@@ -9,6 +9,7 @@ import {
 const query = new URLSearchParams(location.search);
 const trialId = query.get('trial') || '1';
 const slotData = cachedSlotDataForCurrentConnection();
+const embeddedInShell = window.parent !== window;
 const alert = document.getElementById('battle-alert');
 const roomStatus = document.getElementById('battle-room-status');
 const drawer = document.getElementById('check-drawer');
@@ -21,6 +22,7 @@ let currentSpec = null;
 let currentStructureEvaluation = null;
 let currentPixelScore = null;
 let goalSent = false;
+let bridgeStateReceived = false;
 let currentClientState = { checkedLocations: new Set(), pendingLocations: new Set() };
 const checkEvents = [];
 
@@ -78,6 +80,10 @@ function initializeBattle() {
 }
 
 async function connectAndScore(spec) {
+  if (embeddedInShell) {
+    connectThroughShell(spec);
+    return;
+  }
   const saved = ArchipelagoClient.savedConnection();
   const client = new ArchipelagoClient();
   client.addEventListener('connected', () => {
@@ -91,8 +97,8 @@ async function connectAndScore(spec) {
       roomStatus.className = 'status-pill';
     }
   });
-  client.addEventListener('items', event => {
-    applyUtilityGates(event.detail.items.map(item => ITEM_NAMES_BY_ID[item.item]).filter(Boolean));
+  client.addEventListener('items', () => {
+    applyUtilityGates(client.ownedItemNames());
   });
   client.addEventListener('state', event => {
     currentClientState = event.detail;
@@ -100,16 +106,73 @@ async function connectAndScore(spec) {
   });
   client.addEventListener('locations-sent', event => {
     const verb = event.detail.connected ? 'Sent' : 'Queued';
-    event.detail.locations.forEach(id => addCheckEvent(`${verb}: ${formatLocation(id)}.`));
+    event.detail.locations.forEach(id => addCheckEvent(`${verb}: ${displayCheckName(id)}.`));
   });
   client.addEventListener('locations-confirmed', event => {
-    event.detail.locations.forEach(id => addCheckEvent(`Confirmed: ${formatLocation(id)}.`));
+    event.detail.locations.forEach(id => addCheckEvent(`Confirmed: ${displayCheckName(id)}.`));
   });
   client.addEventListener('error', event => {
     roomStatus.textContent = 'Offline scoring';
     roomStatus.className = 'status-pill is-error';
     showNotice(event.detail.error.message);
   });
+  registerScoreHandler(spec, {
+    checkLocations: checks => client.checkLocations(checks),
+    completeGoal: () => client.completeGoal()
+  });
+  try {
+    await client.connect({ ...saved, password: ArchipelagoClient.savedPassword() });
+  } catch (error) {
+    roomStatus.textContent = 'Offline scoring';
+    roomStatus.className = 'status-pill is-error';
+    showNotice(`${error.message} You may keep working, but checks require a connection.`);
+  }
+
+}
+
+function connectThroughShell(spec) {
+  roomStatus.textContent = 'Connecting…';
+  document.querySelectorAll('a[href="/"]').forEach(link => {
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      window.parent.postMessage({ type: 'ggplot-ap-close-battle' }, window.location.origin);
+    });
+  });
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== window.parent) return;
+    const message = event.data || {};
+    if (message.type === 'ggplot-ap-state') {
+      const previousChecked = currentClientState.checkedLocations || new Set();
+      currentClientState = {
+        ...message.state,
+        checkedLocations: new Set(message.state.checkedLocations || []),
+        pendingLocations: new Set(message.state.pendingLocations || [])
+      };
+      roomStatus.textContent = message.state.connected ? 'Connected' : 'Reconnecting…';
+      roomStatus.className = message.state.connected ? 'status-pill is-online' : 'status-pill';
+      applyUtilityGates(message.state.itemNames || []);
+      if (bridgeStateReceived) {
+        currentClientState.checkedLocations.forEach(id => {
+          if (!previousChecked.has(id)) addCheckEvent(`Confirmed: ${displayCheckName(id)}.`);
+        });
+      }
+      bridgeStateReceived = true;
+      renderCheckDrawer();
+    } else if (message.type === 'ggplot-ap-locations-sent') {
+      const verb = message.connected ? 'Sent' : 'Queued';
+      message.locations.forEach(id => addCheckEvent(`${verb}: ${displayCheckName(id)}.`));
+    }
+  });
+  registerScoreHandler(spec, {
+    checkLocations: checks => window.parent.postMessage({
+      type: 'ggplot-ap-check-locations', locations: checks
+    }, window.location.origin),
+    completeGoal: () => window.parent.postMessage({ type: 'ggplot-ap-complete-goal' }, window.location.origin)
+  });
+  window.parent.postMessage({ type: 'ggplot-ap-bridge-ready' }, window.location.origin);
+}
+
+function registerScoreHandler(spec, actions) {
   document.addEventListener('battle-score-updated', event => {
     currentPixelScore = Number(event.detail.pixelScore);
     currentStructureEvaluation = event.detail.structureEvaluation || {
@@ -121,7 +184,7 @@ async function connectAndScore(spec) {
     if (trialId === 'final') {
       if (event.detail.pixelScore >= spec.thresholds.match) {
         try {
-          client.completeGoal();
+          actions.completeGoal();
           if (!goalSent) addCheckEvent('Sent: final exhibition goal.');
           goalSent = true;
           renderCheckDrawer();
@@ -134,16 +197,8 @@ async function connectAndScore(spec) {
     slotData.score_thresholds.forEach(score => {
       if (event.detail.pixelScore >= score) checks.push(locationId(numericTrial, score));
     });
-    try { client.checkLocations(checks); } catch (error) { showNotice(error.message); }
+    try { actions.checkLocations(checks); } catch (error) { showNotice(error.message); }
   });
-  try {
-    await client.connect({ ...saved, password: ArchipelagoClient.savedPassword() });
-  } catch (error) {
-    roomStatus.textContent = 'Offline scoring';
-    roomStatus.className = 'status-pill is-error';
-    showNotice(`${error.message} You may keep working, but checks require a connection.`);
-  }
-
 }
 
 function setupCheckDrawer() {
@@ -162,7 +217,6 @@ function openCheckDrawer() {
   drawer.setAttribute('aria-hidden', 'false');
   drawer.removeAttribute('inert');
   document.getElementById('check-drawer-toggle')?.setAttribute('aria-expanded', 'true');
-  document.body.classList.add('drawer-open');
   document.getElementById('check-drawer-close')?.focus();
 }
 
@@ -172,26 +226,23 @@ function closeCheckDrawer() {
   drawer.setAttribute('inert', '');
   drawerBackdrop.hidden = true;
   document.getElementById('check-drawer-toggle')?.setAttribute('aria-expanded', 'false');
-  document.body.classList.remove('drawer-open');
 }
 
 function renderCheckDrawer() {
   if (!currentSpec || !logicList || !locationList) return;
-  const predicates = trialId === 'final'
-    ? [{ match: 'regex', value: '^grob:.*:panel', minimum: 2 }]
-    : currentSpec.predicates;
-  const results = currentStructureEvaluation?.results || [];
-  logicList.replaceChildren(...predicates.map((predicate, index) => {
-    const item = document.createElement('li');
-    const result = results[index];
-    item.className = `check-logic-item${result ? (result.satisfied ? ' is-met' : ' is-missing') : ''}`;
-    item.textContent = describePredicate(predicate);
-    item.title = `${predicate.match}: ${predicate.value}`;
-    return item;
-  }));
+  const codeAccuracy = currentStructureEvaluation?.score;
+  const codeRequirement = document.createElement('li');
+  codeRequirement.className = 'check-logic-item';
+  if (currentStructureEvaluation) {
+    codeRequirement.classList.add(currentStructureEvaluation.satisfied ? 'is-met' : 'is-missing');
+  }
+  codeRequirement.textContent = Number.isFinite(codeAccuracy)
+    ? `Code accuracy: ${codeAccuracy.toFixed(2)}% / 100% required`
+    : 'Code accuracy: 100% required (not evaluated)';
+  logicList.replaceChildren(codeRequirement);
 
   if (trialId === 'final') {
-    const row = makeCheckRow(`Final goal (${currentSpec.thresholds.match}% + structure)`, goalSent ? 'Sent' : checkLocalStatus(currentSpec.thresholds.match));
+    const row = makeCheckRow(`Final goal — ${currentSpec.thresholds.match}% pixel + 100% code`, goalSent ? 'Sent' : checkLocalStatus(currentSpec.thresholds.match));
     if (goalSent) row.classList.add('is-confirmed');
     locationList.replaceChildren(row);
     drawerSummary.textContent = goalSent ? '1/1' : '0/1';
@@ -201,8 +252,12 @@ function renderCheckDrawer() {
 
   const numericTrial = Number(currentSpec.trialId);
   const definitions = [
-    { name: 'Structure', id: locationId(numericTrial, 'Structure'), threshold: null },
-    ...slotData.score_thresholds.map(score => ({ name: `${score}% Match`, id: locationId(numericTrial, score), threshold: score }))
+    { name: 'Structure — 100% code accuracy', id: locationId(numericTrial, 'Structure'), threshold: null },
+    ...slotData.score_thresholds.map(score => ({
+      name: `${score}% pixel + 100% code accuracy`,
+      id: locationId(numericTrial, score),
+      threshold: score
+    }))
   ];
   const checked = currentClientState.checkedLocations || new Set();
   const pending = currentClientState.pendingLocations || new Set();
@@ -240,19 +295,14 @@ function makeCheckRow(name, status) {
   return row;
 }
 
-function describePredicate(predicate) {
-  const value = predicate.value || '';
-  const geom = value.match(/:geom:Geom([A-Za-z]+)/)?.[1];
-  if (geom) return `Include ${splitCamelCase(geom).toLowerCase()} layer${(predicate.minimum || 1) > 1 ? 's' : ''}`;
-  if (value.includes('FacetWrap')) return 'Use faceting';
-  if (value.includes('Coord(Flip|Polar)')) return 'Use flipped or polar coordinates';
-  if (value.includes(':transform:')) return 'Use the required scale transformation';
-  if (value.startsWith('^grob:.*:panel')) return `Render at least ${predicate.minimum || 1} composed panels`;
-  return `Match ${value}`;
-}
-
-function splitCamelCase(value) {
-  return value.replace(/([a-z])([A-Z])/g, '$1 $2');
+function displayCheckName(id) {
+  if (trialId === 'final') return 'Final exhibition goal';
+  const numericTrial = Number(currentSpec.trialId);
+  if (id === locationId(numericTrial, 'Structure')) return 'Structure — 100% code accuracy';
+  const threshold = slotData.score_thresholds.find(score => id === locationId(numericTrial, score));
+  return threshold
+    ? `${threshold}% pixel + 100% code accuracy`
+    : formatLocation(id);
 }
 
 function addCheckEvent(message) {
@@ -280,12 +330,16 @@ function renderCheckEvents() {
 }
 
 function applyUtilityGates(items) {
-  const style = document.createElement('style');
+  let style = document.getElementById('ap-utility-gates');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'ap-utility-gates';
+    document.head.appendChild(style);
+  }
   const rules = [];
   if (!items.includes('Diff Lens')) rules.push('.diff-toggle{display:none!important}');
   if (!items.includes('Data Inspector')) rules.push('#variables-tab{display:none!important}');
   style.textContent = rules.join('\n');
-  document.head.appendChild(style);
   const swatches = items.filter(item => item.startsWith('Colour Swatch')).length;
   if (swatches) {
     const accents = ['#0dcaf0', '#20c997', '#845ef7', '#ff922b', '#3a86ff', '#ff006e', '#2a9d8f', '#e76f51', '#e9c46a'];
