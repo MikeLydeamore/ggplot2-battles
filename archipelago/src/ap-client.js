@@ -154,8 +154,10 @@ export class ArchipelagoClient extends EventTarget {
       return;
     }
     if (packet.cmd === 'RoomUpdate' && Array.isArray(packet.checked_locations)) {
+      const confirmed = packet.checked_locations.filter(id => !this.checkedLocations.has(id));
       packet.checked_locations.forEach(id => this.checkedLocations.add(id));
       this.removeConfirmedPending();
+      if (confirmed.length) this.emit('locations-confirmed', { locations: confirmed });
       this.emit('state', this.state());
       return;
     }
@@ -170,11 +172,13 @@ export class ArchipelagoClient extends EventTarget {
 
   checkLocations(ids) {
     const fresh = ids.filter(id => !this.checkedLocations.has(id) && !this.pendingLocations.has(id));
-    if (!fresh.length) return;
+    if (!fresh.length) return [];
     fresh.forEach(id => this.pendingLocations.add(id));
     storePending(this.endpoint, this.slot, this.pendingLocations);
     this.flushPending();
+    this.emit('locations-sent', { locations: fresh, connected: this.connected });
     this.emit('state', this.state());
+    return fresh;
   }
 
   completeGoal() {
@@ -196,7 +200,8 @@ export class ArchipelagoClient extends EventTarget {
       slotData: this.slotData,
       items: this.items,
       itemNames: this.ownedItemNames(),
-      checkedLocations: new Set(this.checkedLocations)
+      checkedLocations: new Set(this.checkedLocations),
+      pendingLocations: new Set(this.pendingLocations)
     };
   }
 

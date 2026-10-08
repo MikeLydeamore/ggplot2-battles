@@ -8,6 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/darkly/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/ap.css">
+  <link rel="stylesheet" href="/check-drawer.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico">
 </head>
@@ -15,10 +16,36 @@
   <div id="spinner" class="spinner-overlay"><div class="spinner"></div></div>
   <header class="ap-header battle-header">
     <a href="/" class="ap-brand"><img src="/logo.png" alt="ggplot battles"><span>Archipelago</span></a>
-    <div class="battle-connection"><span id="battle-room-status" class="status-pill">Reconnecting…</span><a href="/">Back to trials</a></div>
+    <div class="battle-connection">
+      <span id="battle-room-status" class="status-pill">Reconnecting…</span>
+      <button id="check-drawer-toggle" class="check-drawer-toggle" type="button" aria-controls="check-drawer" aria-expanded="false">
+        Checks <span id="check-drawer-summary">0/0</span>
+      </button>
+      <a href="/">Back to trials</a>
+    </div>
   </header>
   <div id="battle-alert" class="battle-alert" role="alert" hidden></div>
   <main class="container-fluid"><editor-viewer></editor-viewer></main>
+  <div id="check-drawer-backdrop" class="check-drawer-backdrop" hidden></div>
+  <aside id="check-drawer" class="check-drawer" aria-hidden="true" aria-labelledby="check-drawer-title" inert>
+    <header class="check-drawer-header">
+      <div><p class="eyebrow">Archipelago progress</p><h2 id="check-drawer-title">Trial checks</h2></div>
+      <button id="check-drawer-close" class="check-drawer-close" type="button" aria-label="Close checks">&times;</button>
+    </header>
+    <section class="check-drawer-section">
+      <h3>Structural logic</h3>
+      <p class="check-drawer-help">Visual checks are only sent while every structural requirement is satisfied.</p>
+      <ul id="check-logic-list" class="check-logic-list"></ul>
+    </section>
+    <section class="check-drawer-section">
+      <h3>Checks</h3>
+      <div id="check-location-list" class="check-location-list"></div>
+    </section>
+    <section class="check-drawer-section check-event-section">
+      <h3>Check activity</h3>
+      <ol id="check-event-log" class="check-event-log" aria-live="polite"></ol>
+    </section>
+  </aside>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-r.min.js"></script>

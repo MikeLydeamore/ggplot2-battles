@@ -49,6 +49,7 @@ test('valid spec compiles to a self-contained R challenge', () => {
   const source = compileChallengeSource(SPEC);
   assert.match(source, /trial_1_data <- data\.frame/);
   assert.match(source, /geom_point/);
+  assert.match(source, /#\| colours: 'c\("#0dcaf0", "#ff6b6b"\)'/);
   assert.match(source, /print\(p\)/);
 });
 

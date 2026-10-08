@@ -12,6 +12,8 @@ python -m http.server 8000 --directory dist
 
 The client needs a generated Archipelago room containing a `ggplot Battles` slot. Connection details are saved locally, while the room password is retained only for the browser session. Received items and checked locations are synchronized from the Archipelago server.
 
+During a trial, the **Checks** button opens a flyout showing the structural logic, every available score check, pending and server-confirmed checks, and a session activity log. Required colours are displayed as a copy-ready R vector.
+
 ## Checks and unlocks
 
 Each trial awards one Structure check and score checks from 80% through 100%. The `score_check_interval` YAML option accepts `every_1_percent`, `every_2_percent`, `every_5_percent`, or `every_10_percent`; the default 5% interval produces 48 checks across eight trials.

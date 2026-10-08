@@ -968,7 +968,25 @@ function renderChallengeDetails(options) {
   if (!colours) return;
 
   if (options.colours) {
-    colours.innerHTML = `Colours: ${marked.parseInline(options.colours)}`;
+    const label = document.createTextNode('Colours: ');
+    const value = document.createElement('code');
+    value.textContent = options.colours;
+    value.title = 'R colour vector';
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn-sm btn-outline-info ms-2 py-0';
+    copy.textContent = 'Copy';
+    copy.title = 'Copy R colour vector';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(options.colours);
+        copy.textContent = 'Copied';
+      } catch {
+        copy.textContent = 'Select to copy';
+      }
+      window.setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+    });
+    colours.replaceChildren(label, value, copy);
     colours.style.visibility = 'visible';
   } else {
     colours.replaceChildren();

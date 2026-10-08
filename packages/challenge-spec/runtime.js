@@ -107,12 +107,12 @@ export function compileChallengeSource(spec) {
   const validation = validateChallengeSpec(spec);
   if (!validation.valid) throw new Error(validation.errors.join(' '));
   const rows = materializeDataset(spec);
-  const colours = spec.plot.palette.join(', ');
+  const colours = vectorR(spec.plot.palette);
   return [
     `#| title: ${JSON.stringify(spec.brief.title)}`,
     `#| dataset-name: ${JSON.stringify(spec.dataset.name)}`,
     `#| description: ${JSON.stringify(spec.brief.description + ` Schema: ${spec.brief.schema}`)}`,
-    `#| colours: ${JSON.stringify(colours)}`,
+    `#| colours: '${colours}'`,
     '#| plot-variable: "p"',
     `#| stub: ${JSON.stringify(starterCode(spec).replace(/\n/g, '\\n'))}`,
     spec.plot.layers.some(layer => layer.geom === 'smooth') ? '#| prerun-code: "set.seed(1)"' : '',
@@ -138,7 +138,7 @@ export function compileFinalChallengeSource(spec) {
     `#| title: ${JSON.stringify(spec.brief.title)}`,
     `#| dataset-name: ${JSON.stringify(`${left.dataset.name}, ${right.dataset.name}`)}`,
     `#| description: ${JSON.stringify(spec.brief.description + ` Schemas: ${spec.brief.schema}`)}`,
-    `#| colours: ${JSON.stringify(spec.brief.colours.join(', '))}`,
+    `#| colours: '${vectorR(spec.brief.colours)}'`,
     '#| plot-variable: "p"',
     `#| stub: ${JSON.stringify(starterCode(spec).replace(/\n/g, '\\n'))}`,
     'library(ggplot2)',
