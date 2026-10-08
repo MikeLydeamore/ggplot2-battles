@@ -347,7 +347,8 @@ function handleComparisonResult(data) {
   }
 
   const mismatch = parseFloat(data.misMatchPercentage);
-  const score = Number((100 - mismatch).toFixed(2));
+  const score = window.GgplotBattleCore?.scoreFromMismatch(mismatch)
+    ?? Number((100 - mismatch).toFixed(2));
   const bestScore = saveLocalBestScore(score);
   animateSimilarityScore(score);
   dispatchScore(score, bestScore, pendingComparisonDetail);

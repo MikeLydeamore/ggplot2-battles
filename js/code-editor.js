@@ -911,6 +911,9 @@ async function initializeWebR() {
 }
 
 async function loadChallengeSource(challengeId) {
+  if (typeof window.ggplotBattleChallengeProvider?.loadChallengeSource === 'function') {
+    return window.ggplotBattleChallengeProvider.loadChallengeSource(challengeId);
+  }
   const response = await fetch(`../../challenges-code/${challengeId}.R`);
   if (!response.ok) {
     throw new Error(`Could not load challenge source for "${challengeId}"`);
@@ -1248,11 +1251,18 @@ async function runAndCompare() {
   try {
     await cleanupSessionWorkspace();
     await renderUserPlot(scoredCode);
-    const codeScore = await calculateCodeSimilarity(scoredCode);
+    const codeEvaluation = await calculateCodeSimilarity(scoredCode);
+    const codeScore = typeof codeEvaluation === 'number'
+      ? codeEvaluation
+      : codeEvaluation?.score;
     renderCodeSimilarity(codeScore);
     window.compareRenderedPlot?.({
       code: scoredCode,
       codeScore,
+      structureSatisfied: typeof codeEvaluation === 'object'
+        ? Boolean(codeEvaluation.satisfied)
+        : Number(codeScore) >= 99.999,
+      structureEvaluation: typeof codeEvaluation === 'object' ? codeEvaluation : null,
       source: 'full-script'
     });
     await refreshVariables();
@@ -1268,6 +1278,9 @@ async function calculateCodeSimilarity(userCode) {
   if (!challengeSourceCode) return null;
 
   const userPlotFeatures = await getCurrentPlotFeatures();
+  if (typeof window.ggplotBattleChallengeProvider?.evaluateStructure === 'function') {
+    return window.ggplotBattleChallengeProvider.evaluateStructure(userPlotFeatures || []);
+  }
   if (targetPlotFeatures?.length && userPlotFeatures?.length) {
     return scoreFeatureOverlap(userPlotFeatures, targetPlotFeatures);
   }
@@ -1317,6 +1330,9 @@ async function getCurrentPlotFeatures(plotVariable = '') {
 }
 
 function scoreFeatureOverlap(userFeatures, targetFeatures) {
+  if (window.GgplotBattleCore?.scoreFeatureOverlap) {
+    return window.GgplotBattleCore.scoreFeatureOverlap(userFeatures, targetFeatures);
+  }
   const userCounts = countFeatures(userFeatures);
   const targetCounts = countFeatures(targetFeatures);
   let overlap = 0;
@@ -1429,6 +1445,7 @@ local({
     aesthetics <- sort(unique(normalise_name(scale$aesthetics)))
     prefix <- paste0("scale:", paste(aesthetics, collapse = ","))
     add(paste0(prefix, ":class:", class_name(scale)))
+    if (!is.null(scale$trans$name)) add(paste0(prefix, ":transform:", scale$trans$name))
     add_values(paste0(prefix, ":limits"), tryCatch(scale$get_limits(), error = function(error) NULL))
     breaks <- tryCatch(scale$get_breaks(), error = function(error) NULL)
     add_values(paste0(prefix, ":breaks"), breaks)
@@ -1810,6 +1827,9 @@ function writeOutput(message) {
 }
 
 function getChallengeId() {
+  if (typeof window.ggplotBattleChallengeProvider?.getChallengeId === 'function') {
+    return window.ggplotBattleChallengeProvider.getChallengeId();
+  }
   if (window.getCurrentChallengeId) {
     return window.getCurrentChallengeId();
   }

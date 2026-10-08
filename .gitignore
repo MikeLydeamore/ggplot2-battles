@@ -7,3 +7,6 @@ Rplots.pdf
 .env
 .env.*
 !.env.example
+archipelago/dist/
+apworld/dist/
+__pycache__/

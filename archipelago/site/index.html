@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A procedural ggplot2 world for Archipelago multiworld randomizer sessions.">
+  <meta property="og:title" content="ggplot Battles — Archipelago">
+  <meta property="og:description" content="Generate plots, clear checks, and send items across a multiworld.">
+  <title>ggplot Battles — Archipelago</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ap.css">
+</head>
+<body>
+  <header class="ap-header">
+    <a href="/" class="ap-brand"><img src="/logo.png" alt="ggplot battles"><span>Archipelago</span></a>
+    <span class="beta-chip">Procedural beta</span>
+  </header>
+
+  <main class="ap-shell">
+    <section class="ap-hero">
+      <div>
+        <p class="eyebrow">R plots meet multiworld randomisation</p>
+        <h1>Every seed is a new data story.</h1>
+        <p class="hero-copy">Connect to an Archipelago room, unlock plotting techniques, and recreate synthetic ggplot2 targets to send checks to your team.</p>
+      </div>
+      <div class="plot-motif" aria-hidden="true">
+        <i style="--h:35%"></i><i style="--h:72%"></i><i style="--h:51%"></i><i style="--h:88%"></i><i style="--h:63%"></i>
+      </div>
+    </section>
+
+    <section class="connection-panel" aria-labelledby="connect-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">Room connection</p><h2 id="connect-title">Join your slot</h2></div>
+        <span id="connection-status" class="status-pill" role="status">Offline</span>
+      </div>
+      <form id="connection-form" class="connection-form">
+        <label>Server<input id="server" name="server" placeholder="archipelago.gg:38281" required></label>
+        <label>Slot name<input id="slot" name="slot" autocomplete="username" required></label>
+        <label>Password<input id="password" name="password" type="password" autocomplete="current-password"></label>
+        <button type="submit" id="connect-button">Connect</button>
+      </form>
+      <p id="connection-message" class="connection-message" aria-live="polite">Enter the room details from your Archipelago room page.</p>
+    </section>
+
+    <section class="run-grid" id="run-content" hidden>
+      <div class="run-main">
+        <div class="section-heading"><div><p class="eyebrow">Generated run</p><h2>Your trials</h2></div><strong id="check-count">0 checks</strong></div>
+        <div id="trial-grid" class="trial-grid"></div>
+        <article id="final-card" class="final-card"></article>
+      </div>
+      <aside class="run-sidebar">
+        <section class="sidebar-card"><p class="eyebrow">Inventory</p><h2>Received tools</h2><div id="inventory" class="inventory"></div></section>
+        <section class="sidebar-card"><p class="eyebrow">Live feed</p><h2>Room activity</h2><ol id="activity" class="activity"><li>Connected to the room.</li></ol></section>
+      </aside>
+    </section>
+  </main>
+  <script type="module" src="/src/dashboard.js"></script>
+</body>
+</html>

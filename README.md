@@ -95,6 +95,21 @@ python -m http.server 8000
 npx http-server
 ```
 
+## 🏝 Archipelago World
+
+This repository also contains a procedural [Archipelago](https://archipelago.gg/) world and browser client. The client builds independently from `archipelago/` for deployment at `ap.ggplotbattles.dev`; the normal website remains at the repository root.
+
+```bash
+cd archipelago
+npm test
+npm run build
+
+cd ../apworld
+python -m unittest discover -s tests -v
+```
+
+Copy `apworld/ggplot_battles` into an Archipelago source checkout's `worlds/` directory and use the launcher's **Build APWorlds** component to create the distributable package. Install that package through the Archipelago launcher and use `apworld/examples/ggplot_battles.yaml` to generate a slot.
+
 ## 🏆 Leaderboard Setup
 
 The leaderboard is intentionally account-free: users enter a display name, then the site stores the display name, score, date, challenge id, and submitted code.

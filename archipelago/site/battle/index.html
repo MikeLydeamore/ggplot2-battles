@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Procedural ggplot Battles Archipelago trial.">
+  <title>Trial — ggplot Battles Archipelago</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/darkly/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/ap.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="/favicon.ico">
+</head>
+<body class="ap-battle-page">
+  <div id="spinner" class="spinner-overlay"><div class="spinner"></div></div>
+  <header class="ap-header battle-header">
+    <a href="/" class="ap-brand"><img src="/logo.png" alt="ggplot battles"><span>Archipelago</span></a>
+    <div class="battle-connection"><span id="battle-room-status" class="status-pill">Reconnecting…</span><a href="/">Back to trials</a></div>
+  </header>
+  <div id="battle-alert" class="battle-alert" role="alert" hidden></div>
+  <main class="container-fluid"><editor-viewer></editor-viewer></main>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-r.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/resemblejs@4.1.0/resemble.min.js"></script>
+  <script src="/shared/battle-engine/battle-core.js"></script>
+  <script type="module" src="/src/battle.js"></script>
+</body>
+</html>

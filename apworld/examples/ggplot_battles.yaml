@@ -1,0 +1,11 @@
+name: Plotter
+description: Default two-hour procedural ggplot Battles world
+game: ggplot Battles
+requires:
+  version: 0.6.0
+
+ggplot Battles:
+  progression_balancing: 50
+  accessibility: items
+  mastery_progression: false
+  score_check_interval: every_5_percent
